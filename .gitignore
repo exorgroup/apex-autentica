@@ -1,0 +1,58 @@
+# Composer
+/vendor/
+composer.lock
+
+# Laravel/PHP
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PHP Unit
+.phpunit.cache
+.phpunit.result.cache
+/coverage/
+/coverage.xml
+
+# PHPStorm
+.idea/
+
+# VS Code
+.vscode/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Package files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Build artifacts
+/build/
+/dist/
+/public/build/

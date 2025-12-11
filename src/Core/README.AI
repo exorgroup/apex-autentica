@@ -1,0 +1,305 @@
+# Autentica - AI Assistant Documentation
+
+## System Overview
+
+Autentica is an enterprise-grade authentication and authorization system for Laravel 11.x applications. It is part of the APEX Framework ecosystem and provides comprehensive security features with multi-tenant support.
+
+### Core Architecture
+
+- **Namespace**: `Apex\Autentica`
+- **Base Path**: `apex/autentica/`
+- **Service Provider**: `Apex\Autentica\AutenticaServiceProvider`
+- **Database Prefix**: `Au10_` (except users table)
+- **Signature Algorithm**: SHA512 for data integrity
+
+## Technical Specifications
+
+### Package Structure
+
+```
+apex/autentica/
+├── config/
+│   ├── auth.php              # Authentication settings
+│   └── permissions.php       # Permission system config
+├── resources/
+│   └── lang/
+│       └── en/
+│           └── auth.php      # English translations
+├── src/
+│   ├── Core/
+│   │   ├── Composables/
+│   │   │   └── Authenticatable.php
+│   │   ├── Console/
+│   │   │   └── TestAutenticaCommand.php
+│   │   ├── Models/
+│   │   │   ├── AuthToken.php
+│   │   │   ├── Group.php
+│   │   │   ├── LoginAttempt.php
+│   │   │   ├── PasswordHistory.php
+│   │   │   ├── Permission.php
+│   │   │   ├── SecurityEvent.php
+│   │   │   └── SystemResource.php
+│   │   ├── Services/
+│   │   │   ├── AuthenticationService.php
+│   │   │   ├── AuthorizationService.php
+│   │   │   └── PermissionCache.php
+│   │   └── Traits/
+│   │       ├── HasGroups.php
+│   │       ├── HasPermissions.php
+│   │       ├── HasSecurityEvents.php
+│   │       └── Signable.php
+│   ├── Pro/                 # Pro tier features
+│   ├── Enterprise/          # Enterprise tier features
+│   └── AutenticaServiceProvider.php
+└── database/
+    └── tenant/
+        └── migrations/      # Tenant-specific migrations
+```
+
+### Database Schema
+
+#### Core Tables
+
+1. **users** (Laravel default + additions)
+   - Added: `signature` (varchar 128), `deleted_at` (soft deletes)
+
+2. **Au10_groups**
+   - Single-level groups in Core (hierarchical in Pro)
+   - Fields: id, parent_id (nullable), name, description, timestamps, signature
+
+3. **Au10_user_groups**
+   - Pivot table for user-group relationships
+   - Fields: user_id, group_id, timestamps, signature
+
+4. **Au10_system_resources**
+   - Protected resources (models, functions, modules)
+   - Hierarchical structure with parent_id
+   - Fields: id, parent_id, name, identifier, type, description, menu_order
+
+5. **Au10_permissions**
+   - Links users/groups to resources with permissions
+   - Polymorphic relationship (permissionable_type, permissionable_id)
+   - Standard permissions: can_create, can_read, can_update, can_delete, can_print, can_history
+   - Custom permissions: stored as comma-separated values
+
+6. **Au10_auth_tokens**
+   - Types: remember, api, session
+   - Fields: user_id, token (hashed), type, expires_at, last_used_at
+
+7. **Au10_security_events**
+   - Audit log for security events
+   - Event types: login_success, login_failed, password_changed, permission_changed, etc.
+   - Stores: user_id, event_type, event_data (JSON), ip_address, user_agent
+
+8. **Au10_login_attempts**
+   - Tracks login attempts for lockout functionality
+   - Fields: email, ip_address, user_agent, successful, attempted_at
+
+9. **Au10_password_history**
+   - Prevents password reuse
+   - Stores hashed passwords with user_id
+
+10. **Au10_sessions**
+    - Active session management
+    - Fields: user_id, session_id, ip_address, device_id, location (JSON)
+
+### Key Features Implementation
+
+#### Authentication Flow
+
+1. **Login Process**:
+   ```php
+   AuthenticationService::attempt($credentials, $remember)
+   - Validates credentials
+   - Checks account lockout
+   - Logs security events
+   - Creates remember token if requested
+   - Returns: ['success' => bool, 'user' => User, 'message' => string]
+   ```
+
+2. **Password Management**:
+   - Configurable password policies
+   - Password history tracking (default: 5)
+   - Password expiry support
+   - Validation includes: length, uppercase, lowercase, numbers, special chars
+
+3. **Account Security**:
+   - Max login attempts: 5 (configurable)
+   - Lockout duration: 15 minutes (configurable)
+   - Failed attempt tracking per IP and email
+
+#### Authorization System
+
+1. **Permission Structure**:
+   - User → has many → Permissions
+   - Group → has many → Permissions
+   - User → belongs to many → Groups
+   - Permissions are polymorphic (can belong to User or Group)
+
+2. **Permission Inheritance**:
+   - Users inherit permissions from their groups
+   - Most permissive wins (configurable)
+   - User permissions override group permissions
+
+3. **Permission Caching**:
+   - TTL: 3600 seconds (configurable)
+   - Cache key format: `autentica_permissions.User.{id}`
+   - Automatic cache invalidation on permission changes
+
+#### Multi-tenancy Support
+
+- Uses Tenancy for Laravel
+- All tables created in tenant database
+- Tenant isolation at database level
+- Signature includes tenant ID for data integrity
+
+### API Methods
+
+#### User Model Extensions
+
+```php
+// Group Management
+$user->joinGroup($group)
+$user->leaveGroup($group)
+$user->belongsToGroup($group)
+$user->getGroupNames()
+
+// Permission Checking
+$user->hasPermission($resource, $action)
+$user->hasAnyPermission($resource, [$actions])
+$user->hasAllPermissions($resource, [$actions])
+$user->getCachedPermissions()
+
+// Security
+$user->isAccountLocked()
+$user->getUnlockTime()
+$user->getFailedLoginCount($minutes)
+$user->logSecurityEvent($type, $data)
+```
+
+#### Service Classes
+
+**AuthenticationService**:
+- `attempt($credentials, $remember = false)`
+- `logout()`
+- `changePassword($user, $currentPassword, $newPassword)`
+- `validatePassword($password, $user = null)`
+- `createApiToken($user, $name = null)`
+
+**AuthorizationService**:
+- `grant($model, $resource, $permissions)`
+- `revoke($model, $resource, $permissions = null)`
+- `sync($model, $resource, $permissions)`
+- `copyUserPermissions($source, $target, $filter = null)`
+- `getPermissionMatrix($models, $resources = null)`
+
+**PermissionCache**:
+- `warmUserCache($limit = null)`
+- `clearUserCache($user)`
+- `clearGroupCache($group)`
+- `clearAllCache()`
+- `getStatistics()`
+
+### Configuration
+
+#### Authentication (`config/autentica/auth.php`)
+
+```php
+'password_policies' => [
+    'min_length' => 8,
+    'require_uppercase' => true,
+    'require_lowercase' => true,
+    'require_numbers' => true,
+    'require_special_chars' => false,
+    'password_history_count' => 5,
+    'password_expiry_days' => 0,
+],
+
+'security' => [
+    'max_login_attempts' => 5,
+    'lockout_duration' => 15,
+    'remember_me_duration' => 30,
+    'session_lifetime' => 120,
+],
+```
+
+#### Permissions (`config/autentica/permissions.php`)
+
+```php
+'cache' => [
+    'enabled' => true,
+    'ttl' => 3600,
+    'prefix' => 'autentica_permissions',
+    'tag' => 'autentica_permissions',
+],
+
+'inheritance' => [
+    'user_overrides_group' => true,
+    'most_permissive_wins' => true,
+],
+```
+
+### Error Handling
+
+- All methods wrapped in try-catch blocks
+- Errors logged to Laravel log with: filename, method name, error message
+- Format: `{Filename}.php - {methodName}() method error: {message}`
+- Cache tagging errors suppressed when cache driver doesn't support tags
+
+### Testing
+
+**Artisan Command**: `php artisan autentica:test {tenant} [--cleanup]`
+
+Tests cover:
+1. User creation with signature validation
+2. Authentication (failed/successful login)
+3. Password change and history
+4. Group membership
+5. Permission assignment and checking
+6. Security event logging
+7. Login attempt tracking
+8. Permission caching
+
+### Integration Requirements
+
+1. **User Model**: Must use `Apex\Autentica\Core\Composables\Authenticatable` trait
+2. **Service Provider**: Must be registered in `config/app.php`
+3. **Migrations**: Run in tenant context for multi-tenant apps
+4. **Cache Driver**: Redis recommended for tag support
+
+### Language Support
+
+- Translations namespaced under `autentica::`
+- Language files in `resources/lang/{locale}/auth.php`
+- Supports multi-language error messages and UI text
+
+### Security Considerations
+
+1. All passwords hashed with Laravel's bcrypt
+2. API tokens stored as SHA256 hashes
+3. SHA512 signatures on all database records
+4. Soft deletes for audit trail
+5. IP-based tracking for security events
+6. Automatic session invalidation on logout
+
+### Performance Optimizations
+
+1. Permission caching reduces database queries
+2. Eager loading relationships where appropriate
+3. Indexed database columns for common queries
+4. Chunked operations for bulk updates
+
+### Known Limitations
+
+1. Core package supports single-level groups only
+2. Cache tagging requires Redis or Memcached
+3. Sessions table only populated in web context
+4. Password history requires manual cleanup for old records
+
+### Version Information
+
+- **Version**: 1.0.0.0
+- **Copyright**: EXOR Group Ltd 2025
+- **Laravel Version**: 11.x
+- **PHP Version**: 8.2+
+- **License**: Proprietary
