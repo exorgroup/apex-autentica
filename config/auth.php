@@ -131,4 +131,24 @@ return [
         'refresh_enabled' => env('AUTH_API_TOKEN_REFRESH_ENABLED', true),
         'refresh_before_days' => env('AUTH_API_TOKEN_REFRESH_BEFORE_DAYS', 30),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-Tenancy Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Controls multi-tenancy support for Autentica authentication:
+    | - 'auto': Automatically detect architecture (recommended)
+    | - true: Force multi-tenancy mode
+    | - false: Force single-tenancy mode
+    |
+    | Auto-detection checks for:
+    | 1. Explicit configuration setting
+    | 2. Existence of migrations/tenant/ folder
+    | 3. Stancl Tenancy package installation
+    |
+    */
+    'tenancy' => [
+        'enabled' => env('AUTENTICA_TENANCY_ENABLED', 'auto'),
+    ],
 ];

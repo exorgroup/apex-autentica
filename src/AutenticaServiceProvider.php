@@ -75,15 +75,56 @@ class AutenticaServiceProvider extends ServiceProvider
                 __DIR__ . '/../config/permissions.php' => config_path('autentica/permissions.php'),
             ], 'autentica-config');
 
-            // Publish migrations
+            // Smart migration publishing based on architecture detection
+            $isMultiTenant = $this->detectMultiTenancy();
+            $migrationPath = $isMultiTenant 
+                ? database_path('migrations/tenant')
+                : database_path('migrations');
+
             $this->publishes([
-                __DIR__ . '/../database/tenant/migrations' => database_path('migrations/tenant'),
+                __DIR__ . '/../database/tenant/migrations' => $migrationPath,
             ], 'autentica-migrations');
 
             // Publish language files
             $this->publishes([
                 __DIR__ . '/../resources/lang' => resource_path('lang/vendor/autentica'),
             ], 'autentica-lang');
+        }
+    }
+
+    /**
+     * Detect if the application uses multi-tenancy architecture.
+     *
+     * @return bool
+     */
+    protected function detectMultiTenancy(): bool
+    {
+        try {
+            // 1. Explicit configuration wins (most reliable)
+            $enabled = config('autentica.tenancy.enabled', 'auto');
+            if ($enabled !== 'auto') {
+                return (bool) $enabled;
+            }
+
+            // 2. Check for tenant migrations folder (very reliable)
+            if (is_dir(database_path('migrations/tenant'))) {
+                return true;
+            }
+
+            // 3. Check for Stancl Tenancy package (reliable)
+            if (class_exists('\Stancl\Tenancy\TenancyServiceProvider')) {
+                return true;
+            }
+
+            // 4. Default to single-tenant (fallback)
+            return false;
+
+        } catch (\Exception $e) {
+            // Log warning and default to safe option
+            \Illuminate\Support\Facades\Log::warning('APEX Autentica: Could not detect tenancy mode, defaulting to single-tenant', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
         }
     }
 

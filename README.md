@@ -57,11 +57,19 @@ php artisan vendor:publish --tag=autentica-config
 
 ### Publish Migrations
 
-Publish the migration files:
+The package automatically detects your application architecture:
 
 ```bash
+# Auto-detects and publishes to correct location
 php artisan vendor:publish --tag=autentica-migrations
+php artisan migrate
 ```
+
+**Multi-tenancy auto-detection:**
+- ✅ Detects existing `migrations/tenant/` folder
+- ✅ Detects Stancl Tenancy package installation  
+- ✅ Can be overridden with `AUTENTICA_TENANCY_ENABLED=true/false`
+- ✅ Defaults to single-tenancy if detection is inconclusive
 
 ### Publish Language Files
 
@@ -69,12 +77,6 @@ Publish the language files (optional):
 
 ```bash
 php artisan vendor:publish --tag=autentica-lang
-```
-
-### Run Migrations
-
-```bash
-php artisan migrate
 ```
 
 For multi-tenant applications:
@@ -180,6 +182,31 @@ $isValid = $auth->verifyMfaToken(auth()->user(), $token);
 ```
 
 ## Configuration
+
+### Architecture Auto-Detection
+
+APEX Autentica automatically detects your application architecture using this priority order:
+
+1. **Explicit Configuration** - If `AUTENTICA_TENANCY_ENABLED` is set to `true` or `false`
+2. **Tenant Migrations Folder** - If `database/migrations/tenant/` exists
+3. **Stancl Tenancy Package** - If Stancl Tenancy is installed
+4. **Default Fallback** - Defaults to single-tenancy mode
+
+**Detection Results:**
+- **Multi-tenant detected**: Migrations publish to `database/migrations/tenant/`
+- **Single-tenant detected**: Migrations publish to `database/migrations/`
+
+**Override Detection:**
+```env
+# Force multi-tenancy
+AUTENTICA_TENANCY_ENABLED=true
+
+# Force single-tenancy  
+AUTENTICA_TENANCY_ENABLED=false
+
+# Use auto-detection (default)
+AUTENTICA_TENANCY_ENABLED=auto
+```
 
 ### Authentication Configuration
 
@@ -323,7 +350,7 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute t
 
 ## Security
 
-If you discover any security-related issues, please email security@exorgroup.com instead of using the issue tracker.
+If you discover any security-related issues, please email info@exorgroup.com instead of using the issue tracker.
 
 ## License
 
