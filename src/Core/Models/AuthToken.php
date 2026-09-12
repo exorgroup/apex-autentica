@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: AuthToken model for managing authentication tokens including remember tokens,
  *              API tokens, and session tokens.
- * URL: apex/autentica/src/Core/Models/AuthToken.php
+ * URL: exorgroup/apex-autentica/src/Core/Models/AuthToken.php
  */
 
 namespace Apex\Autentica\Core\Models;
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Apex\Autentica\Core\Traits\Signable;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
+use Apex\Autentica\Core\Support\Autentica;
 
 class AuthToken extends Model
 {
@@ -27,7 +27,7 @@ class AuthToken extends Model
      *
      * @var string
      */
-    protected $table = 'Au10_auth_tokens';
+    protected $table = 'au10_auth_tokens';
 
     /**
      * The attributes that are mass assignable.
@@ -38,6 +38,8 @@ class AuthToken extends Model
         'user_id',
         'token',
         'type',
+        'name',
+        'abilities',
         'expires_at',
         'last_used_at',
     ];
@@ -64,7 +66,7 @@ class AuthToken extends Model
     public function user(): BelongsTo
     {
         try {
-            return $this->belongsTo(User::class);
+            return $this->belongsTo(Autentica::userModel());
         } catch (\Exception $e) {
             Log::error('AuthToken.php - user() method error: ' . $e->getMessage());
             throw $e;

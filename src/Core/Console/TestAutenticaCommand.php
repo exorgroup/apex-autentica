@@ -6,13 +6,14 @@
  * APEX Laravel Autentica Authentication System
  * Description: Console command for testing Autentica authentication and authorization functionality
  *              in a multi-tenant environment.
- * URL: apex/autentica/src/Core/Console/TestAutenticaCommand.php
+ * URL: exorgroup/apex-autentica/src/Core/Console/TestAutenticaCommand.php
  */
 
 namespace Apex\Autentica\Core\Console;
 
 use Illuminate\Console\Command;
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
+use Apex\Autentica\Core\Support\Autentica;
 use Apex\Autentica\Core\Models\Group;
 use Apex\Autentica\Core\Models\SystemResource;
 use Apex\Autentica\Core\Models\PasswordHistory;
@@ -35,7 +36,7 @@ class TestAutenticaCommand extends Command
             $this->info("=" . str_repeat("=", 50));
 
             $authService = new AuthenticationService();
-            $user = User::where('email', 'autentica.test@example.com')->first();
+            $user = Autentica::users()->where('email', 'autentica.test@example.com')->first();
 
             // Test with wrong current password
             $this->info("Testing password change with wrong current password...");
@@ -141,7 +142,7 @@ class TestAutenticaCommand extends Command
             $this->info("1. Testing User Creation with Autentica Traits");
             $this->info("=" . str_repeat("=", 50));
 
-            $user = User::create([
+            $user = Autentica::users()->create([
                 'name' => 'Autentica Test User',
                 'email' => 'autentica.test@example.com',
                 'password' => bcrypt('TestPass123!'),
@@ -248,7 +249,7 @@ class TestAutenticaCommand extends Command
             $this->info("✓ Editor group created: {$editorGroup->name}");
 
             // Add user to groups
-            $user = User::where('email', 'autentica.test@example.com')->first();
+            $user = Autentica::users()->where('email', 'autentica.test@example.com')->first();
             $user->joinGroup($adminGroup);
             $user->joinGroup('Test Editors'); // Test by name
 
@@ -331,7 +332,7 @@ class TestAutenticaCommand extends Command
             $this->info("=" . str_repeat("=", 50));
 
             $authzService = new AuthorizationService();
-            $user = User::where('email', 'autentica.test@example.com')->first();
+            $user = Autentica::users()->where('email', 'autentica.test@example.com')->first();
             $adminGroup = Group::where('name', 'Test Administrators')->first();
 
             // Grant user permissions
@@ -402,7 +403,7 @@ class TestAutenticaCommand extends Command
             $this->info("6. Testing Security Events");
             $this->info("=" . str_repeat("=", 50));
 
-            $user = User::where('email', 'autentica.test@example.com')->first();
+            $user = Autentica::users()->where('email', 'autentica.test@example.com')->first();
 
             // Get recent events
             $events = $user->getRecentSecurityEvents(10);
@@ -438,7 +439,7 @@ class TestAutenticaCommand extends Command
             $this->info("7. Testing Login Attempts");
             $this->info("=" . str_repeat("=", 50));
 
-            $user = User::where('email', 'autentica.test@example.com')->first();
+            $user = Autentica::users()->where('email', 'autentica.test@example.com')->first();
 
             // Get login attempts
             $attempts = $user->getRecentLoginAttempts(10);
@@ -474,7 +475,7 @@ class TestAutenticaCommand extends Command
             $this->info("=" . str_repeat("=", 50));
 
             $cache = new PermissionCache();
-            $user = User::where('email', 'autentica.test@example.com')->first();
+            $user = Autentica::users()->where('email', 'autentica.test@example.com')->first();
 
             // Check cache status
             $isCached = $cache->isCached($user);
@@ -514,7 +515,7 @@ class TestAutenticaCommand extends Command
             $this->info("Cleaning up test data...");
 
             // Delete test user
-            User::where('email', 'autentica.test@example.com')->forceDelete();
+            Autentica::users()->where('email', 'autentica.test@example.com')->forceDelete();
 
             // Delete test groups
             Group::whereIn('name', ['Test Administrators', 'Test Editors'])->forceDelete();

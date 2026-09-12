@@ -6,12 +6,12 @@
  * APEX Laravel Autentica Authentication System
  * Description: Core authorization service handling permission checks, resource management,
  *              and access control logic for users and groups.
- * URL: apex/autentica/src/Core/Services/AuthorizationService.php
+ * URL: exorgroup/apex-autentica/src/Core/Services/AuthorizationService.php
  */
 
 namespace Apex\Autentica\Core\Services;
 
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
 use Apex\Autentica\Core\Models\Group;
 use Apex\Autentica\Core\Models\SystemResource;
 use Apex\Autentica\Core\Models\Permission;
@@ -377,7 +377,7 @@ class AuthorizationService
             }
 
             // Clear all permission caches
-            Cache::tags(config('permissions.cache.tag', 'autentica_permissions'))->flush();
+            Cache::tags(config('autentica.permissions.cache.tag', 'autentica_permissions'))->flush();
 
             return $count;
         } catch (\Exception $e) {

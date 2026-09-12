@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: HasSecurityEvents trait for logging security-related events. Tracks login attempts,
  *              permission changes, password resets, and other security activities.
- * URL: apex/autentica/src/Core/Traits/HasSecurityEvents.php
+ * URL: exorgroup/apex-autentica/src/Core/Traits/HasSecurityEvents.php
  */
 
 namespace Apex\Autentica\Core\Traits;
@@ -308,8 +308,8 @@ trait HasSecurityEvents
     public function isAccountLocked(): bool
     {
         try {
-            $maxAttempts = config('auth.security.max_login_attempts', 5);
-            $lockoutDuration = config('auth.security.lockout_duration', 15);
+            $maxAttempts = config('autentica.auth.security.max_login_attempts', 5);
+            $lockoutDuration = config('autentica.auth.security.lockout_duration', 15);
 
             $failedAttempts = $this->getFailedLoginCount($lockoutDuration);
 
@@ -349,7 +349,7 @@ trait HasSecurityEvents
                 return 0;
             }
 
-            $lockoutDuration = config('auth.security.lockout_duration', 15);
+            $lockoutDuration = config('autentica.auth.security.lockout_duration', 15);
 
             $lastFailedAttempt = $this->loginAttempts()
                 ->where('successful', false)

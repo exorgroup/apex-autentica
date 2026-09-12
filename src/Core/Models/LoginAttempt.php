@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: LoginAttempt model for tracking successful and failed login attempts,
  *              used for security monitoring and account lockout functionality.
- * URL: apex/autentica/src/Core/Models/LoginAttempt.php
+ * URL: exorgroup/apex-autentica/src/Core/Models/LoginAttempt.php
  */
 
 namespace Apex\Autentica\Core\Models;
@@ -25,7 +25,7 @@ class LoginAttempt extends Model
      *
      * @var string
      */
-    protected $table = 'Au10_login_attempts';
+    protected $table = 'au10_login_attempts';
 
     /**
      * The attributes that are mass assignable.

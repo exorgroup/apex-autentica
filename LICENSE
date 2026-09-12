@@ -2,6 +2,13 @@ MIT License
 
 Copyright (c) 2025 EXOR Group Ltd
 
+SCOPE: This MIT licence covers Autentica Core ONLY — everything under `src/Core/`,
+together with the package's configuration, migrations, resources and tests that
+support Core.
+
+Autentica Pro — everything under `src/Pro/` — is NOT covered by this licence. It is
+proprietary and licensed separately. See LICENSE-PRO.
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

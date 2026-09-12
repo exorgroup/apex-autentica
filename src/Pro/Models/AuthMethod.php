@@ -2,15 +2,16 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial - Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Model for authentication method configurations with flexible JSON config storage
- * File Location: apex/autentica/src/Pro/Models/AuthMethod.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Models/AuthMethod.php
  */
 
 namespace Apex\Autentica\Pro\Models;
 
-use App\Models\User;
+use Apex\Autentica\Core\Support\Autentica;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -47,26 +48,10 @@ class AuthMethod extends Model
 
     const VALID_METHODS = ['password', 'totp', 'sms', 'email', 'social'];
 
-    protected static function boot(): void
-    {
-        try {
-            parent::boot();
-            static::creating(function ($model) {
-                $model->generateSignature();
-            });
-            static::updating(function ($model) {
-                $model->generateSignature();
-            });
-        } catch (\Exception $e) {
-            Log::error('AuthMethod.php - boot() method error: ' . $e->getMessage());
-            throw $e;
-        }
-    }
-
     public function user(): BelongsTo
     {
         try {
-            return $this->belongsTo(User::class);
+            return $this->belongsTo(Autentica::userModel());
         } catch (\Exception $e) {
             Log::error('AuthMethod.php - user() method error: ' . $e->getMessage());
             throw $e;

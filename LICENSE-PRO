@@ -1,0 +1,34 @@
+APEX AUTENTICA PRO — COMMERCIAL LICENCE
+
+Copyright (c) 2025 EXOR Group Ltd. All rights reserved.
+
+SCOPE
+This licence covers Autentica Pro — everything under `src/Pro/`, together with the
+migrations, configuration and resources that exist solely to support it.
+
+Autentica Core (`src/Core/`) is separately licensed under the MIT Licence. See LICENSE.
+Nothing in this document restricts your rights to Core.
+
+GRANT
+Use of Autentica Pro requires a current commercial licence from EXOR Group Ltd. Subject
+to a valid licence and payment of the applicable fees, EXOR Group Ltd grants you a
+non-exclusive, non-transferable right to use, and to modify for your own use, Autentica
+Pro within the products and deployments covered by that licence.
+
+RESTRICTIONS
+Without a current commercial licence you may not use Autentica Pro in any production
+system, nor copy, distribute, sublicense, resell or make it available to third parties.
+You may not remove or alter copyright or licence notices. You may not extract Pro source
+into another package for redistribution.
+
+Evaluation and development use is permitted without a licence.
+
+NO WARRANTY
+AUTENTICA PRO IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL EXOR GROUP LTD BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH AUTENTICA PRO OR
+ITS USE.
+
+CONTACT
+Licensing enquiries: support@exorgroup.com

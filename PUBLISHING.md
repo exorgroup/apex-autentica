@@ -62,7 +62,7 @@ Consider setting up GitHub Actions for automated testing and releases. The workf
 Once published, users can install your package with:
 
 ```bash
-composer require apex/autentica
+composer require exorgroup/apex-autentica
 ```
 
 ## Package Features Implemented
@@ -119,27 +119,27 @@ composer require apex/autentica
 ## Critical Issue Fixed: Missing Database Migrations
 
 ### **Problem Identified**
-The original APEX Autentica module was missing critical database migration files. While the models defined table structures (like `Au10_permissions`, `Au10_groups`, etc.), users installing the package couldn't create the required database tables.
+The original APEX Autentica module was missing critical database migration files. While the models defined table structures (like `au10_permissions`, `au10_groups`, etc.), users installing the package couldn't create the required database tables.
 
 ### **Solution Implemented**
 Created comprehensive migration files for all Autentica models:
 
 #### **Core Tables (8 migrations)**
-- `Au10_system_resources` - System resources and permissions hierarchy
-- `Au10_groups` - User groups/roles  
-- `Au10_permissions` - Polymorphic permissions system
-- `Au10_login_attempts` - Failed login tracking and account lockout
-- `Au10_security_events` - Security audit logging
-- `Au10_password_histories` - Password history tracking
-- `Au10_group_user` - User-group relationships (pivot table)
-- `Au10_auth_tokens` - API authentication tokens
+- `au10_system_resources` - System resources and permissions hierarchy
+- `au10_groups` - User groups/roles  
+- `au10_permissions` - Polymorphic permissions system
+- `au10_login_attempts` - Failed login tracking and account lockout
+- `au10_security_events` - Security audit logging
+- `au10_password_histories` - Password history tracking
+- `au10_group_user` - User-group relationships (pivot table)
+- `au10_auth_tokens` - API authentication tokens
 
 #### **Pro Feature Tables (5 migrations)**
-- `Au10_mfa_configs` - Multi-factor authentication configuration
-- `Au10_mfa_backup_codes` - MFA recovery codes
-- `Au10_social_accounts` - OAuth social login accounts
-- `Au10_trusted_devices` - Device trust management
-- `Au10_sessions` - Enhanced session tracking
+- `au10_mfa_configs` - Multi-factor authentication configuration
+- `au10_mfa_backup_codes` - MFA recovery codes
+- `au10_social_accounts` - OAuth social login accounts
+- `au10_trusted_devices` - Device trust management
+- `au10_sessions` - Enhanced session tracking
 
 ## Installation Test Results
 

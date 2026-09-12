@@ -2,45 +2,31 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial — Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
- * Description: Model for authentication token management including remember tokens, API tokens, and session tokens with expiration tracking
- * File Location: apex/autentica/src/Pro/Models/AuthToken.php
+ * Description: Pro extensions to the Core AuthToken model — query scopes, statistics and
+ *              display helpers for remember, API and session tokens.
+ * File Location: exorgroup/apex-autentica/src/Pro/Models/AuthToken.php
  */
 
 namespace Apex\Autentica\Pro\Models;
 
-use App\Models\User;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Log;
-use Apex\Autentica\Core\Traits\Signable;
+use Apex\Autentica\Core\Models\AuthToken as CoreAuthToken;
 
-class AuthToken extends Model
+/**
+ * Both Core and Pro previously declared their own AuthToken model against the same
+ * au10_auth_tokens table, each with its own fillable, casts and relations that could drift
+ * apart. Pro now extends Core: the table, fillable, casts, signing and the user relation are
+ * defined once in Core, and Pro adds only what Pro needs.
+ *
+ * Extending Core (rather than Core referencing Pro) keeps the dependency pointing the right
+ * way, so src/Pro can be lifted into its own package without touching Core.
+ */
+class AuthToken extends CoreAuthToken
 {
-    use SoftDeletes, Signable;
-
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'au10_auth_tokens';
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = [
-        'user_id',
-        'token',
-        'type',
-        'expires_at',
-        'last_used_at',
-    ];
-
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -52,82 +38,9 @@ class AuthToken extends Model
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'expires_at' => 'datetime',
-            'last_used_at' => 'datetime',
-            'created_at' => 'datetime',
-            'updated_at' => 'datetime',
-            'deleted_at' => 'datetime',
-        ];
-    }
-
-    /**
      * Valid token types
      */
     const VALID_TYPES = ['remember', 'api', 'session'];
-
-    /**
-     * Boot the model and set up event listeners.
-     *
-     * @return void
-     */
-    protected static function boot(): void
-    {
-        try {
-            parent::boot();
-
-            // Generate signature before creating
-            static::creating(function ($model) {
-                $model->generateSignature();
-            });
-
-            // Update signature before updating
-            static::updating(function ($model) {
-                $model->generateSignature();
-            });
-
-            Log::info('AuthToken model booted successfully', [
-                'file' => 'AuthToken.php',
-                'method' => 'boot'
-            ]);
-        } catch (\Exception $e) {
-            Log::error('AuthToken.php - boot() method error: ' . $e->getMessage(), [
-                'file' => 'AuthToken.php',
-                'method' => 'boot',
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get the user that owns the auth token.
-     *
-     * @return BelongsTo
-     * @throws \Exception
-     */
-    public function user(): BelongsTo
-    {
-        try {
-            return $this->belongsTo(User::class);
-        } catch (\Exception $e) {
-            Log::error('AuthToken.php - user() method error: ' . $e->getMessage(), [
-                'file' => 'AuthToken.php',
-                'method' => 'user',
-                'model_id' => $this->id ?? 'unknown',
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
-    }
 
     /**
      * Scope query to filter by token type.

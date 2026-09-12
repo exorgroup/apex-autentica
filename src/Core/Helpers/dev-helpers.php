@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: Development helper functions for testing Autentica features in tinker or console.
  *              Copy these functions to your tinker session or create a helper file.
- * URL: apex/autentica/src/Core/Helpers/dev-helpers.php
+ * URL: exorgroup/apex-autentica/src/Core/Helpers/dev-helpers.php
  */
 
 // Initialize tenant if needed
@@ -22,7 +22,7 @@ if (!function_exists('initTenant')) {
 if (!function_exists('checkUserPermission')) {
     function checkUserPermission($email, $resource, $action = null)
     {
-        $user = App\Models\User::where('email', $email)->first();
+        $user = \Apex\Autentica\Core\Support\Autentica::users()->where('email', $email)->first();
         if (!$user) {
             echo "User not found: $email\n";
             return false;
@@ -53,7 +53,7 @@ if (!function_exists('checkUserPermission')) {
 if (!function_exists('checkUserGroup')) {
     function checkUserGroup($email, $groupName)
     {
-        $user = App\Models\User::where('email', $email)->first();
+        $user = \Apex\Autentica\Core\Support\Autentica::users()->where('email', $email)->first();
         if (!$user) {
             echo "User not found: $email\n";
             return false;
@@ -92,7 +92,7 @@ if (!function_exists('getUsersWithPermission')) {
 if (!function_exists('grantPermission')) {
     function grantPermission($email, $resource, $actions)
     {
-        $user = App\Models\User::where('email', $email)->first();
+        $user = \Apex\Autentica\Core\Support\Autentica::users()->where('email', $email)->first();
         if (!$user) {
             echo "User not found: $email\n";
             return false;
@@ -117,8 +117,8 @@ if (!function_exists('showPermissionMatrix')) {
     function showPermissionMatrix($emails = [])
     {
         $users = empty($emails)
-            ? App\Models\User::limit(5)->get()
-            : App\Models\User::whereIn('email', $emails)->get();
+            ? \Apex\Autentica\Core\Support\Autentica::users()->limit(5)->get()
+            : \Apex\Autentica\Core\Support\Autentica::users()->whereIn('email', $emails)->get();
 
         $resources = Apex\Autentica\Core\Models\SystemResource::all();
 
@@ -150,7 +150,7 @@ if (!function_exists('showPermissionMatrix')) {
 if (!function_exists('checkAccountSecurity')) {
     function checkAccountSecurity($email)
     {
-        $user = App\Models\User::where('email', $email)->first();
+        $user = \Apex\Autentica\Core\Support\Autentica::users()->where('email', $email)->first();
         if (!$user) {
             echo "User not found: $email\n";
             return;
@@ -212,7 +212,7 @@ if (!function_exists('testAuth')) {
 if (!function_exists('addUserToGroup')) {
     function addUserToGroup($email, $groupName)
     {
-        $user = App\Models\User::where('email', $email)->first();
+        $user = \Apex\Autentica\Core\Support\Autentica::users()->where('email', $email)->first();
         if (!$user) {
             echo "User not found: $email\n";
             return false;

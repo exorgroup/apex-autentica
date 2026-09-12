@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: Permission system configuration file. Defines permission types, caching strategies,
  *              and default permission settings for the authorization system.
- * URL: apex/autentica/config/permissions.php
+ * URL: exorgroup/apex-autentica/config/permissions.php
  */
 
 return [

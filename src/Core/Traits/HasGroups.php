@@ -6,12 +6,15 @@
  * APEX Laravel Autentica Authentication System
  * Description: HasGroups trait for users. Provides group membership management functionality
  *              including adding, removing, and checking group memberships.
- * URL: apex/autentica/src/Core/Traits/HasGroups.php
+ * URL: exorgroup/apex-autentica/src/Core/Traits/HasGroups.php
  */
 
 namespace Apex\Autentica\Core\Traits;
 
+use Apex\Autentica\Core\Exceptions\AutenticaException;
 use Apex\Autentica\Core\Models\Group;
+use Apex\Signature\SignatureService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 trait HasGroups
@@ -24,9 +27,9 @@ trait HasGroups
     public function groups()
     {
         try {
-            return $this->belongsToMany(Group::class, 'Au10_user_groups', 'user_id', 'group_id')
+            return $this->belongsToMany(Group::class, 'au10_group_user', 'user_id', 'group_id')
                 ->withTimestamps()
-                ->withPivot('signature');
+                ->withPivot('assigned_at', 'assigned_by', 'signature');
         } catch (\Exception $e) {
             Log::error('HasGroups.php - groups() method error: ' . $e->getMessage());
             throw $e;
@@ -107,30 +110,31 @@ trait HasGroups
      */
     public function joinGroup($group): bool
     {
+        // Keep the original argument: resolveGroup() returns null on a miss, so reporting
+        // $group after reassigning it would name nothing.
+        $resolved = $this->resolveGroup($group);
+
+        if (! $resolved) {
+            throw AutenticaException::groupNotFound($group);
+        }
+
+        $group = $resolved;
+
+        if ($this->belongsToGroup($group)) {
+            return true;
+        }
+
         try {
-            if (!($group instanceof Group)) {
-                if (is_numeric($group)) {
-                    $group = Group::find($group);
-                } else {
-                    $group = Group::where('name', $group)->first();
-                }
-            }
-
-            if (!$group) {
-                return false;
-            }
-
-            if (!$this->belongsToGroup($group)) {
-                $this->groups()->attach($group->id, [
-                    'signature' => hash('sha512', $this->id . $group->id . now()->toDateTimeString())
-                ]);
-                $this->clearPermissionCacheIfAvailable();
-            }
+            $this->groups()->attach($group->id, $this->groupPivotAttributes($group->id));
+            $this->clearPermissionCacheIfAvailable();
 
             return true;
         } catch (\Exception $e) {
             Log::error('HasGroups.php - joinGroup() method error: ' . $e->getMessage());
-            return false;
+
+            // Deliberately not returning false: the caller cannot tell that apart from
+            // "already a member", and would carry on believing the user has access.
+            throw AutenticaException::membershipWriteFailed('joinGroup', $e);
         }
     }
 
@@ -142,29 +146,26 @@ trait HasGroups
      */
     public function leaveGroup($group): bool
     {
+        $resolved = $this->resolveGroup($group);
+
+        if (! $resolved) {
+            throw AutenticaException::groupNotFound($group);
+        }
+
+        $group = $resolved;
+
         try {
-            if (!($group instanceof Group)) {
-                if (is_numeric($group)) {
-                    $group = Group::find($group);
-                } else {
-                    $group = Group::where('name', $group)->first();
-                }
-            }
+            $removed = $this->groups()->detach($group->id) > 0;
 
-            if (!$group) {
-                return false;
-            }
-
-            $result = $this->groups()->detach($group->id) > 0;
-
-            if ($result) {
+            if ($removed) {
                 $this->clearPermissionCacheIfAvailable();
             }
 
-            return $result;
+            return $removed;
         } catch (\Exception $e) {
             Log::error('HasGroups.php - leaveGroup() method error: ' . $e->getMessage());
-            return false;
+
+            throw AutenticaException::membershipWriteFailed('leaveGroup', $e);
         }
     }
 
@@ -176,20 +177,17 @@ trait HasGroups
      */
     public function joinGroups(array $groups): int
     {
-        try {
-            $joined = 0;
+        $joined = 0;
 
-            foreach ($groups as $group) {
-                if ($this->joinGroup($group)) {
-                    $joined++;
-                }
+        foreach ($groups as $group) {
+            // joinGroup() throws on failure, which is what we want: silently counting a
+            // failed join would report success the caller cannot act on.
+            if ($this->joinGroup($group)) {
+                $joined++;
             }
-
-            return $joined;
-        } catch (\Exception $e) {
-            Log::error('HasGroups.php - joinGroups() method error: ' . $e->getMessage());
-            return 0;
         }
+
+        return $joined;
     }
 
     /**
@@ -200,20 +198,15 @@ trait HasGroups
      */
     public function leaveGroups(array $groups): int
     {
-        try {
-            $left = 0;
+        $left = 0;
 
-            foreach ($groups as $group) {
-                if ($this->leaveGroup($group)) {
-                    $left++;
-                }
+        foreach ($groups as $group) {
+            if ($this->leaveGroup($group)) {
+                $left++;
             }
-
-            return $left;
-        } catch (\Exception $e) {
-            Log::error('HasGroups.php - leaveGroups() method error: ' . $e->getMessage());
-            return 0;
         }
+
+        return $left;
     }
 
     /**
@@ -224,30 +217,88 @@ trait HasGroups
      */
     public function syncGroups(array $groups): array
     {
-        try {
-            $groupIds = [];
+        $groupIds = [];
 
-            foreach ($groups as $group) {
-                if (is_numeric($group)) {
-                    $groupIds[] = $group;
-                } else {
-                    $groupModel = Group::where('name', $group)->first();
-                    if ($groupModel) {
-                        $groupIds[] = $groupModel->id;
-                    }
-                }
+        foreach ($groups as $group) {
+            $resolved = $this->resolveGroup($group);
+
+            if (! $resolved) {
+                throw AutenticaException::groupNotFound($group);
             }
 
-            $result = $this->groups()->sync(array_combine($groupIds, array_map(function ($id) {
-                return ['signature' => hash('sha512', $this->id . $id . now()->toDateTimeString())];
-            }, $groupIds)));
+            $groupIds[] = $resolved->id;
+        }
+
+        try {
+            // sync() detaches before it attaches. Without a transaction, an attach that fails
+            // leaves the user in NO group at all - no permissions, and nothing to say why.
+            // The transaction turns that into "no change", plus a thrown exception.
+            $result = DB::transaction(function () use ($groupIds) {
+                return $this->groups()->sync(array_combine(
+                    $groupIds,
+                    array_map(fn ($id) => $this->groupPivotAttributes($id), $groupIds)
+                ));
+            });
+
             $this->clearPermissionCacheIfAvailable();
 
             return $result;
         } catch (\Exception $e) {
             Log::error('HasGroups.php - syncGroups() method error: ' . $e->getMessage());
-            return [];
+
+            throw AutenticaException::membershipWriteFailed('syncGroups', $e);
         }
+    }
+
+    /**
+     * Resolve a group from a name, id or instance.
+     *
+     * @param string|int|Group $group
+     * @return \Apex\Autentica\Core\Models\Group|null
+     */
+    protected function resolveGroup($group): ?Group
+    {
+        if ($group instanceof Group) {
+            return $group;
+        }
+
+        if (is_numeric($group)) {
+            return Group::find($group);
+        }
+
+        return Group::where('name', $group)->first();
+    }
+
+    /**
+     * The pivot columns written when a user joins a group.
+     *
+     * Declared once. This was previously hand-written separately in joinGroup() and
+     * syncGroups(), and both wrote a 'signature' column that au10_group_user does not have -
+     * the insert threw, the catch swallowed it, and users silently ended up in no group.
+     *
+     * Anything added here must exist on the pivot table AND be listed in withPivot() on
+     * groups(). autentica:doctor checks exactly that.
+     *
+     * @return array<string, mixed>
+     */
+    protected function groupPivotAttributes(?int $groupId = null): array
+    {
+        $attributes = [
+            'assigned_at' => now(),
+            // Who did this, when there is a signed-in user to attribute it to.
+            'assigned_by' => auth()->id(),
+        ];
+
+        // Signed over stable, stored values only - never the current time - so the signature
+        // can be recomputed from the row months later. Empty while signing is switched off.
+        $attributes['signature'] = app(SignatureService::class)->generate([
+            'user_id' => $this->getKey(),
+            'group_id' => $groupId,
+            'assigned_at' => $attributes['assigned_at']->toDateTimeString(),
+            'assigned_by' => $attributes['assigned_by'],
+        ], 'autentica');
+
+        return $attributes;
     }
 
     /**
@@ -303,7 +354,7 @@ trait HasGroups
     public function getPrimaryGroup(): ?Group
     {
         try {
-            return $this->groups()->orderBy('Au10_user_groups.created_at')->first();
+            return $this->groups()->orderBy('au10_group_user.created_at')->first();
         } catch (\Exception $e) {
             Log::error('HasGroups.php - getPrimaryGroup() method error: ' . $e->getMessage());
             return null;

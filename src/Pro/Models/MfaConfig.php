@@ -2,15 +2,16 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial - Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Model for MFA configurations including TOTP, SMS, and email authentication methods with encrypted secret storage
- * File Location: apex/autentica/src/Pro/Models/MfaConfig.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Models/MfaConfig.php
  */
 
 namespace Apex\Autentica\Pro\Models;
 
-use App\Models\User;
+use Apex\Autentica\Core\Support\Autentica;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -72,41 +73,6 @@ class MfaConfig extends Model
     const VALID_METHODS = ['totp', 'sms', 'email'];
 
     /**
-     * Boot the model and set up event listeners.
-     *
-     * @return void
-     */
-    protected static function boot(): void
-    {
-        try {
-            parent::boot();
-
-            // Generate signature before creating
-            static::creating(function ($model) {
-                $model->generateSignature();
-            });
-
-            // Update signature before updating
-            static::updating(function ($model) {
-                $model->generateSignature();
-            });
-
-            Log::info('MfaConfig model booted successfully', [
-                'file' => 'MfaConfig.php',
-                'method' => 'boot'
-            ]);
-        } catch (\Exception $e) {
-            Log::error('MfaConfig.php - boot() method error: ' . $e->getMessage(), [
-                'file' => 'MfaConfig.php',
-                'method' => 'boot',
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
      * Get the user that owns the MFA configuration.
      *
      * @return BelongsTo
@@ -115,7 +81,7 @@ class MfaConfig extends Model
     public function user(): BelongsTo
     {
         try {
-            return $this->belongsTo(User::class);
+            return $this->belongsTo(Autentica::userModel());
         } catch (\Exception $e) {
             Log::error('MfaConfig.php - user() method error: ' . $e->getMessage(), [
                 'file' => 'MfaConfig.php',

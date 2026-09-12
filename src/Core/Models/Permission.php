@@ -6,12 +6,13 @@
  * APEX Laravel Autentica Authentication System
  * Description: Permission model for managing access rights. Links users/groups to system resources
  *              with specific permissions (CRUD + custom).
- * URL: apex/autentica/src/Core/Models/Permission.php
+ * URL: exorgroup/apex-autentica/src/Core/Models/Permission.php
  */
 
 namespace Apex\Autentica\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Apex\Autentica\Core\Support\Autentica;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -28,7 +29,7 @@ class Permission extends Model
      *
      * @var string
      */
-    protected $table = 'Au10_permissions';
+    protected $table = 'au10_permissions';
 
     /**
      * The attributes that are mass assignable.
@@ -250,10 +251,10 @@ class Permission extends Model
     protected function clearCache(): void
     {
         try {
-            if (config('permissions.cache.enabled', true)) {
-                $cacheKey = config('permissions.cache.prefix', 'autentica_permissions');
+            if (config('autentica.permissions.cache.enabled', true)) {
+                $cacheKey = config('autentica.permissions.cache.prefix', 'autentica_permissions');
 
-                if ($this->permissionable_type === 'App\Models\User') {
+                if ($this->permissionable_type === Autentica::userMorphClass()) {
                     Cache::forget("{$cacheKey}.User.{$this->permissionable_id}");
                 } else {
                     // Without tags, we need to clear cache for each user in the group
@@ -284,7 +285,10 @@ class Permission extends Model
     {
         try {
             $data = [
-                'permissionable_type' => get_class($permissionable),
+                // getMorphClass(), not get_class() - otherwise this hand-written insert stores the
+                // FQCN while Eloquent's own relation writes the morphMap alias, and the two
+                // halves of the same table stop matching each other.
+                'permissionable_type' => $permissionable->getMorphClass(),
                 'permissionable_id' => $permissionable->id,
                 'system_resource_id' => $resource->id,
             ];
@@ -294,11 +298,36 @@ class Permission extends Model
                 $data['can_' . $action] = in_array($action, $permissions);
             }
 
-            // Handle custom permissions
+            // Handle custom permissions. Always written, including as null, so that re-running
+            // with customs removed actually clears them instead of leaving the old value.
             $standardActions = ['create', 'read', 'update', 'delete', 'print', 'history'];
             $customPermissions = array_diff($permissions, $standardActions);
-            if (!empty($customPermissions)) {
-                $data['custom_permissions'] = implode(',', $customPermissions);
+            $data['custom_permissions'] = empty($customPermissions)
+                ? null
+                : implode(config('autentica.permissions.custom.separator', ','), $customPermissions);
+
+            // Upsert on the table's unique triple. The permissions table already forbids two
+            // rows for the same holder and resource, so a plain create() would throw the second
+            // time a seeder ran - and re-running a seeder has to be safe.
+            //
+            // withTrashed() matters: this model soft-deletes, but the unique index does not
+            // care about deleted_at. A revoked permission leaves a trashed row behind, and
+            // without this the next grant for that holder and resource would try to INSERT
+            // and collide - making the pair permanently un-grantable.
+            $existing = static::withTrashed()
+                ->where('permissionable_type', $data['permissionable_type'])
+                ->where('permissionable_id', $data['permissionable_id'])
+                ->where('system_resource_id', $data['system_resource_id'])
+                ->first();
+
+            if ($existing) {
+                if ($existing->trashed()) {
+                    $existing->restore();
+                }
+
+                $existing->fill($data)->save();
+
+                return $existing;
             }
 
             return static::create($data);

@@ -2,15 +2,16 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial — Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Service class for Time-based One-Time Password (TOTP) authentication management including secret generation, QR codes, and verification
- * File Location: apex/autentica/src/Pro/Services/TOTPService.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Services/TOTPService.php
  */
 
 namespace Apex\Autentica\Pro\Services;
 
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
 use Apex\Autentica\Pro\Models\MfaConfig;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Crypt;
@@ -88,17 +89,32 @@ class TOTPService
     public function enableTOTP(User $user, string $secret): MfaConfig
     {
         try {
-            // Create or update MFA config
-            $mfaConfig = MfaConfig::updateOrCreate(
-                [
+            // withTrashed, because disabling TOTP soft-deletes the row while the unique index
+            // still counts it. A plain updateOrCreate would not see that row and would try to
+            // insert a second one, so anyone who had ever turned TOTP off — including anyone
+            // an administrator reset — could never enrol again.
+            $mfaConfig = MfaConfig::withTrashed()
+                ->where('user_id', $user->id)
+                ->where('method', 'totp')
+                ->first();
+
+            $attributes = [
+                'secret' => Crypt::encryptString($secret),
+                'verified_at' => null, // Will be set when user verifies
+            ];
+
+            if ($mfaConfig) {
+                if ($mfaConfig->trashed()) {
+                    $mfaConfig->restore();
+                }
+
+                $mfaConfig->fill($attributes)->save();
+            } else {
+                $mfaConfig = MfaConfig::create($attributes + [
                     'user_id' => $user->id,
-                    'method' => 'totp'
-                ],
-                [
-                    'secret' => Crypt::encryptString($secret),
-                    'verified_at' => null // Will be set when user verifies
-                ]
-            );
+                    'method' => 'totp',
+                ]);
+            }
 
             Log::info('TOTP enabled for user', [
                 'file' => 'TOTPService.php',

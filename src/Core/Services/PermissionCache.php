@@ -6,12 +6,13 @@
  * APEX Laravel Autentica Authentication System
  * Description: Permission caching service for optimizing permission checks. Manages cache
  *              warming, invalidation, and provides cache statistics.
- * URL: apex/autentica/src/Core/Services/PermissionCache.php
+ * URL: exorgroup/apex-autentica/src/Core/Services/PermissionCache.php
  */
 
 namespace Apex\Autentica\Core\Services;
 
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
+use Apex\Autentica\Core\Support\Autentica;
 use Apex\Autentica\Core\Models\Group;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -28,7 +29,7 @@ class PermissionCache
     public function warmUserCache(?int $limit = null): int
     {
         try {
-            $query = User::query();
+            $query = Autentica::users();
 
             if ($limit) {
                 $query->limit($limit);
@@ -116,14 +117,14 @@ class PermissionCache
     public function clearAllCache(): bool
     {
         try {
-            $tag = config('permissions.cache.tag', 'autentica_permissions');
+            $tag = config('autentica.permissions.cache.tag', 'autentica_permissions');
 
             if (Cache::getStore() instanceof \Illuminate\Cache\TaggableStore) {
                 Cache::tags([$tag])->flush();
             } else {
                 // Fallback: clear individual user caches
-                $prefix = config('permissions.cache.prefix', 'autentica_permissions');
-                User::chunk(100, function ($users) use ($prefix) {
+                $prefix = config('autentica.permissions.cache.prefix', 'autentica_permissions');
+                Autentica::users()->chunk(100, function ($users) use ($prefix) {
                     foreach ($users as $user) {
                         Cache::forget("{$prefix}.User.{$user->id}");
                     }
@@ -146,10 +147,10 @@ class PermissionCache
     {
         try {
             $stats = [
-                'enabled' => config('permissions.cache.enabled', true),
-                'ttl' => config('permissions.cache.ttl', 3600),
-                'prefix' => config('permissions.cache.prefix', 'autentica_permissions'),
-                'tag' => config('permissions.cache.tag', 'autentica_permissions'),
+                'enabled' => config('autentica.permissions.cache.enabled', true),
+                'ttl' => config('autentica.permissions.cache.ttl', 3600),
+                'prefix' => config('autentica.permissions.cache.prefix', 'autentica_permissions'),
+                'tag' => config('autentica.permissions.cache.tag', 'autentica_permissions'),
                 'cached_users' => 0,
                 'cache_size' => 0,
                 'supports_tags' => Cache::getStore() instanceof \Illuminate\Cache\TaggableStore,
@@ -164,7 +165,7 @@ class PermissionCache
             $userCount = 0;
 
             // Only check a sample to avoid performance issues
-            User::limit(100)->get()->each(function ($user) use ($prefix, &$userCount) {
+            Autentica::users()->limit(100)->get()->each(function ($user) use ($prefix, &$userCount) {
                 $cacheKey = "{$prefix}.User.{$user->id}";
                 if (Cache::has($cacheKey)) {
                     $userCount++;
@@ -196,7 +197,7 @@ class PermissionCache
         try {
             $count = 0;
 
-            $users = User::whereHas('groups', function ($query) use ($groupIds) {
+            $users = Autentica::users()->whereHas('groups', function ($query) use ($groupIds) {
                 $query->whereIn('id', $groupIds);
             })->get();
 
@@ -222,11 +223,11 @@ class PermissionCache
     public function isCached(User $user): bool
     {
         try {
-            if (!config('permissions.cache.enabled', true)) {
+            if (!config('autentica.permissions.cache.enabled', true)) {
                 return false;
             }
 
-            $prefix = config('permissions.cache.prefix', 'autentica_permissions');
+            $prefix = config('autentica.permissions.cache.prefix', 'autentica_permissions');
             $cacheKey = "{$prefix}.User.{$user->id}";
 
             return Cache::has($cacheKey);
@@ -254,7 +255,7 @@ class PermissionCache
 
             // This is an approximation as Laravel doesn't provide direct TTL access
             // Return configured TTL as we can't get the actual remaining time
-            return config('permissions.cache.ttl', 3600);
+            return config('autentica.permissions.cache.ttl', 3600);
         } catch (\Exception $e) {
             Log::error('PermissionCache.php - getTTL() method error: ' . $e->getMessage());
             return null;
@@ -272,7 +273,7 @@ class PermissionCache
         try {
             $count = 0;
 
-            $users = User::whereHas('securityEvents', function ($query) use ($minutes) {
+            $users = Autentica::users()->whereHas('securityEvents', function ($query) use ($minutes) {
                 $query->where('created_at', '>=', now()->subMinutes($minutes));
             })->get();
 
@@ -299,7 +300,7 @@ class PermissionCache
         try {
             $count = 0;
 
-            $users = User::whereDoesntHave('securityEvents', function ($query) use ($days) {
+            $users = Autentica::users()->whereDoesntHave('securityEvents', function ($query) use ($days) {
                 $query->where('created_at', '>=', now()->subDays($days));
             })->get();
 
@@ -329,7 +330,7 @@ class PermissionCache
             $sampleSize = 0;
 
             // Sample a few users to estimate average cache size
-            User::limit(10)->get()->each(function ($user) use (&$sampleSize, &$userCount) {
+            Autentica::users()->limit(10)->get()->each(function ($user) use (&$sampleSize, &$userCount) {
                 if ($this->isCached($user)) {
                     $permissions = $user->getCachedPermissions();
                     $sampleSize += strlen(serialize($permissions));

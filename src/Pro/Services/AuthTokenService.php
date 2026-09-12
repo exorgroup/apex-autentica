@@ -2,15 +2,16 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial — Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Service class for authentication token management including remember tokens, API tokens, and session tokens with security monitoring
- * File Location: apex/autentica/src/Pro/Services/AuthTokenService.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Services/AuthTokenService.php
  */
 
 namespace Apex\Autentica\Pro\Services;
 
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
 use Apex\Autentica\Pro\Models\AuthToken;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
@@ -22,6 +23,44 @@ class AuthTokenService
      * Token types
      */
     private const TOKEN_TYPES = ['remember', 'api', 'session'];
+
+    /**
+     * Separates the row id from the secret in an issued token.
+     */
+    private const TOKEN_SEPARATOR = '|';
+
+    /**
+     * A real bcrypt hash of a fixed string, used only to spend the same time on a failed
+     * lookup as on a successful one. Never matches a token: the value it hashes is not a
+     * token, and tokens are 64 random characters.
+     */
+    private const TIMING_EQUALISER = '$2y$12$VE.GemA56Osg1U.ljvfJsuxzYBD6mhGz9VkOPsNdlTLk.kJMTT5B6';
+
+    /**
+     * Split an issued token into its row id and secret.
+     *
+     * Returns [null, null] for anything malformed, so a junk token costs no database query.
+     *
+     * @param string $plainToken
+     * @return array{0: int|null, 1: string|null}
+     */
+    protected function splitToken(string $plainToken): array
+    {
+        $parts = explode(self::TOKEN_SEPARATOR, $plainToken, 2);
+
+        if (count($parts) !== 2) {
+            return [null, null];
+        }
+
+        [$id, $secret] = $parts;
+
+        // ctype_digit rejects negatives, decimals, whitespace and the empty string.
+        if (! ctype_digit($id) || $secret === '') {
+            return [null, null];
+        }
+
+        return [(int) $id, $secret];
+    }
 
     /**
      * Get token configuration values
@@ -54,9 +93,10 @@ class AuthTokenService
                 throw new \InvalidArgumentException("Invalid token type: {$type}");
             }
 
-            // Generate random token
-            $plainToken = Str::random(64);
-            $hashedToken = Hash::make($plainToken);
+            // Only the secret half is hashed. The row id travels in the token so verification
+            // is a single indexed lookup instead of a scan - see verifyToken().
+            $secret = Str::random(64);
+            $hashedToken = Hash::make($secret);
 
             // Calculate expiration
             $config = $this->getTokenConfig();
@@ -83,7 +123,8 @@ class AuthTokenService
             ]);
 
             return [
-                'token' => $plainToken,
+                // Format: "{id}|{secret}". The id is not secret - it is a lookup key.
+                'token' => $authToken->id . self::TOKEN_SEPARATOR . $secret,
                 'token_id' => $authToken->id,
                 'expires_at' => $expiresAt,
             ];
@@ -112,31 +153,40 @@ class AuthTokenService
     public function verifyToken(string $plainToken, string $type, bool $updateLastUsed = true): ?User
     {
         try {
-            // Get all tokens of the specified type that haven't expired
-            $tokens = AuthToken::where('type', $type)
-                ->where(function ($query) {
-                    $query->whereNull('expires_at')
-                        ->orWhere('expires_at', '>', now());
-                })
-                ->with('user')
-                ->get();
+            // The token carries its own row id, so this is one indexed lookup and exactly one
+            // hash comparison - never a scan over every live token.
+            [$id, $secret] = $this->splitToken($plainToken);
 
-            foreach ($tokens as $token) {
-                if (Hash::check($plainToken, $token->token)) {
-                    if ($updateLastUsed) {
-                        $token->update(['last_used_at' => now()]);
-                    }
+            $token = $id === null ? null : AuthToken::find($id);
 
-                    Log::info('Token verified successfully', [
-                        'file' => 'AuthTokenService.php',
-                        'method' => 'verifyToken',
-                        'user_id' => $token->user_id,
-                        'token_id' => $token->id,
-                        'type' => $type
-                    ]);
+            // Wrong id, missing row, or wrong type: burn an equivalent hash comparison before
+            // answering, so response time cannot be used to enumerate valid token ids.
+            if (! $token || $token->type !== $type) {
+                Hash::check($secret ?? '', self::TIMING_EQUALISER);
 
-                    return $token->user;
+                Log::warning('Token verification failed', [
+                    'file' => 'AuthTokenService.php',
+                    'method' => 'verifyToken',
+                    'type' => $type
+                ]);
+
+                return null;
+            }
+
+            if (Hash::check($secret, $token->token) && ! $token->isExpired()) {
+                if ($updateLastUsed) {
+                    $token->update(['last_used_at' => now()]);
                 }
+
+                Log::info('Token verified successfully', [
+                    'file' => 'AuthTokenService.php',
+                    'method' => 'verifyToken',
+                    'user_id' => $token->user_id,
+                    'token_id' => $token->id,
+                    'type' => $type
+                ]);
+
+                return $token->user;
             }
 
             Log::warning('Token verification failed', [

@@ -2,15 +2,16 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial — Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Service class for OAuth2 social authentication management supporting Google, Microsoft, and other providers with token management
- * File Location: apex/autentica/src/Pro/Services/OAuth2Service.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Services/OAuth2Service.php
  */
 
 namespace Apex\Autentica\Pro\Services;
 
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
 use Apex\Autentica\Pro\Models\SocialAccount;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Crypt;

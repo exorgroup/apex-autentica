@@ -9,7 +9,7 @@ Autentica is an enterprise-grade authentication and authorization system for Lar
 - **Namespace**: `Apex\Autentica`
 - **Base Path**: `apex/autentica/`
 - **Service Provider**: `Apex\Autentica\AutenticaServiceProvider`
-- **Database Prefix**: `Au10_` (except users table)
+- **Database Prefix**: `au10_` (except users table)
 - **Signature Algorithm**: SHA512 for data integrity
 
 ## Technical Specifications
@@ -63,43 +63,43 @@ apex/autentica/
 1. **users** (Laravel default + additions)
    - Added: `signature` (varchar 128), `deleted_at` (soft deletes)
 
-2. **Au10_groups**
+2. **au10_groups**
    - Single-level groups in Core (hierarchical in Pro)
    - Fields: id, parent_id (nullable), name, description, timestamps, signature
 
-3. **Au10_user_groups**
+3. **au10_user_groups**
    - Pivot table for user-group relationships
    - Fields: user_id, group_id, timestamps, signature
 
-4. **Au10_system_resources**
+4. **au10_system_resources**
    - Protected resources (models, functions, modules)
    - Hierarchical structure with parent_id
    - Fields: id, parent_id, name, identifier, type, description, menu_order
 
-5. **Au10_permissions**
+5. **au10_permissions**
    - Links users/groups to resources with permissions
    - Polymorphic relationship (permissionable_type, permissionable_id)
    - Standard permissions: can_create, can_read, can_update, can_delete, can_print, can_history
    - Custom permissions: stored as comma-separated values
 
-6. **Au10_auth_tokens**
+6. **au10_auth_tokens**
    - Types: remember, api, session
    - Fields: user_id, token (hashed), type, expires_at, last_used_at
 
-7. **Au10_security_events**
+7. **au10_security_events**
    - Audit log for security events
    - Event types: login_success, login_failed, password_changed, permission_changed, etc.
    - Stores: user_id, event_type, event_data (JSON), ip_address, user_agent
 
-8. **Au10_login_attempts**
+8. **au10_login_attempts**
    - Tracks login attempts for lockout functionality
    - Fields: email, ip_address, user_agent, successful, attempted_at
 
-9. **Au10_password_history**
+9. **au10_password_history**
    - Prevents password reuse
    - Stores hashed passwords with user_id
 
-10. **Au10_sessions**
+10. **au10_sessions**
     - Active session management
     - Fields: user_id, session_id, ip_address, device_id, location (JSON)
 

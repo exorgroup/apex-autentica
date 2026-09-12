@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('Au10_system_resources', function (Blueprint $table) {
+        Schema::create('au10_system_resources', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('parent_id')->nullable();
             $table->string('name');
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->foreign('parent_id')->references('id')->on('Au10_system_resources')->onDelete('cascade');
+            $table->foreign('parent_id')->references('id')->on('au10_system_resources')->onDelete('cascade');
             $table->index(['type', 'menu_order']);
         });
     }
@@ -33,6 +33,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('Au10_system_resources');
+        Schema::dropIfExists('au10_system_resources');
     }
 };

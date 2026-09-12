@@ -2,15 +2,16 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial — Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Service class for advanced session management including device tracking, location data, concurrent sessions, and security monitoring
- * File Location: apex/autentica/src/Pro/Services/SessionManager.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Services/SessionManager.php
  */
 
 namespace Apex\Autentica\Pro\Services;
 
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
 use Apex\Autentica\Pro\Models\Session;
 use Apex\Autentica\Pro\Models\TrustedDevice;
 use Illuminate\Support\Facades\Log;
@@ -51,15 +52,32 @@ class SessionManager
             // Check session limits
             $this->enforceSessionLimits($user);
 
-            $session = Session::create([
+            $attributes = [
                 'user_id' => $user->id,
-                'session_id' => session()->getId(),
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
                 'device_id' => $deviceId,
                 'location' => $locationData,
                 'last_activity' => now(),
-            ]);
+            ];
+
+            $sessionId = session()->getId();
+
+            // withTrashed, because session_id is unique and signing out soft-deletes the row.
+            // Laravel usually hands out a fresh id on login, but "usually" is not a guarantee
+            // worth betting sign-in on: a repeat id would otherwise hit the unique index and
+            // throw where it should simply reuse the row.
+            $session = Session::withTrashed()->where('session_id', $sessionId)->first();
+
+            if ($session) {
+                if ($session->trashed()) {
+                    $session->restore();
+                }
+
+                $session->fill($attributes)->save();
+            } else {
+                $session = Session::create($attributes + ['session_id' => $sessionId]);
+            }
 
             // Update trusted device if applicable
             $this->updateTrustedDevice($user, $deviceId, $request);
@@ -137,6 +155,19 @@ class SessionManager
     public function endSession(User $user, int $sessionId): bool
     {
         try {
+            // Read the framework's session id before removing the row: dropping the tracking
+            // record alone would take the entry off the user's list while leaving that
+            // browser signed in — a revoke button that revokes nothing.
+            $target = Session::where('id', $sessionId)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (! $target) {
+                return false;
+            }
+
+            $this->terminateFrameworkSessions([$target->session_id]);
+
             $deleted = Session::where('id', $sessionId)
                 ->where('user_id', $user->id)
                 ->delete();
@@ -179,6 +210,10 @@ class SessionManager
             if ($exceptSessionId) {
                 $query->where('session_id', '!=', $exceptSessionId);
             }
+
+            // Same reason as endSession(): sign the other devices out for real, then forget
+            // them. Clone the query so reading the ids does not consume it.
+            $this->terminateFrameworkSessions((clone $query)->pluck('session_id')->all());
 
             $deleted = $query->delete();
 
@@ -349,6 +384,94 @@ class SessionManager
     }
 
     /**
+     * Stop tracking one session without touching the framework's.
+     *
+     * For sign-out, where Laravel has already invalidated the session itself and all that is
+     * left is to take it off the user's list. Distinct from endSession(), which is a revoke
+     * and does have to terminate the session.
+     *
+     * @param string $sessionId Framework session id
+     * @return bool
+     */
+    public function forgetSession(string $sessionId): bool
+    {
+        try {
+            return Session::where('session_id', $sessionId)->delete() > 0;
+        } catch (\Exception $e) {
+            Log::error('SessionManager.php - forgetSession() method error: ' . $e->getMessage(), [
+                'file' => 'SessionManager.php',
+                'method' => 'forgetSession',
+                'session_id' => $sessionId,
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Actually sign these sessions out at the framework level.
+     *
+     * Autentica's au10_sessions table only records what is signed in; the session itself lives
+     * in Laravel's own store. Ending one means removing it there, otherwise the browser keeps
+     * its cookie and stays authenticated no matter what the tracking table says.
+     *
+     * @param array<int, string|null> $sessionIds Framework session ids
+     * @return int How many were destroyed
+     */
+    private function terminateFrameworkSessions(array $sessionIds): int
+    {
+        $sessionIds = array_values(array_filter($sessionIds));
+
+        if (empty($sessionIds)) {
+            return 0;
+        }
+
+        try {
+            $driver = config('session.driver');
+
+            if ($driver === 'database') {
+                return \Illuminate\Support\Facades\DB::connection(config('session.connection'))
+                    ->table(config('session.table', 'sessions'))
+                    ->whereIn('id', $sessionIds)
+                    ->delete();
+            }
+
+            if ($driver === 'file') {
+                $path = config('session.files');
+                $destroyed = 0;
+
+                foreach ($sessionIds as $id) {
+                    $file = $path . DIRECTORY_SEPARATOR . $id;
+
+                    if (is_file($file) && @unlink($file)) {
+                        $destroyed++;
+                    }
+                }
+
+                return $destroyed;
+            }
+
+            // Said out loud rather than failing quietly: on cookie, array or a custom driver
+            // there is no store to reach into, so a revoke would only tidy the list.
+            Log::warning('Autentica cannot terminate sessions on this driver; revoked sessions stay signed in', [
+                'file' => 'SessionManager.php',
+                'method' => 'terminateFrameworkSessions',
+                'driver' => $driver,
+                'sessions' => count($sessionIds),
+            ]);
+
+            return 0;
+        } catch (\Exception $e) {
+            Log::error('SessionManager.php - terminateFrameworkSessions() method error: ' . $e->getMessage(), [
+                'file' => 'SessionManager.php',
+                'method' => 'terminateFrameworkSessions',
+            ]);
+
+            return 0;
+        }
+    }
+
+    /**
      * Generate a unique device ID based on request characteristics.
      *
      * @param Request $request
@@ -387,6 +510,12 @@ class SessionManager
     private function getLocationData(?string $ipAddress): ?array
     {
         try {
+            // Off unless asked for. This runs on the sign-in path, so an enabled lookup adds
+            // a third-party round trip to every login and sends that party the user's IP.
+            if (! config('autentica_pro.sessions.location_lookup', false)) {
+                return null;
+            }
+
             if (!$ipAddress || $ipAddress === '127.0.0.1' || $ipAddress === '::1') {
                 return [
                     'country' => 'Unknown',
@@ -402,7 +531,7 @@ class SessionManager
             if ($response->successful()) {
                 $data = $response->json();
 
-                if ($data['status'] === 'success') {
+                if (($data['status'] ?? null) === 'success') {
                     return [
                         'country' => $data['country'] ?? 'Unknown',
                         'country_code' => $data['countryCode'] ?? null,
@@ -451,11 +580,17 @@ class SessionManager
             $sessionCount = Session::where('user_id', $user->id)->count();
 
             if ($sessionCount >= $config['max_concurrent']) {
-                // Remove oldest sessions to make room
-                $oldestSessions = Session::where('user_id', $user->id)
+                // Remove oldest sessions to make room. The point of a concurrency limit is
+                // that the oldest device stops being signed in, so terminate before deleting
+                // rather than only dropping it off the list.
+                $oldest = Session::where('user_id', $user->id)
                     ->orderBy('last_activity', 'asc')
                     ->limit($sessionCount - $config['max_concurrent'] + 1)
-                    ->delete();
+                    ->get();
+
+                $this->terminateFrameworkSessions($oldest->pluck('session_id')->all());
+
+                $oldestSessions = Session::whereIn('id', $oldest->pluck('id'))->delete();
 
                 Log::info('Session limit enforced - oldest sessions removed', [
                     'file' => 'SessionManager.php',

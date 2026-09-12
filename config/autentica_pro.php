@@ -4,11 +4,23 @@
  * Copyright EXOR Group Ltd 2025
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
+ * Licence: Commercial — Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Description: Configuration file for Autentica PRO settings including TOTP, session management, device limits, and backup codes
- * File Location: apex/autentica/config/autentica_pro.php
+ * File Location: exorgroup/apex-autentica/config/autentica_pro.php
  */
 
 return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Enable Autentica Pro
+    |--------------------------------------------------------------------------
+    |
+    | Set false to disable every Pro service wholesale — nothing under src/Pro is
+    | registered and the application runs on Core alone. Checked by LicenceGate.
+    |
+    */
+    'enabled' => env('AUTENTICA_PRO_ENABLED', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -37,10 +49,33 @@ return [
     |
     */
     'sessions' => [
+        'track' => env('AUTENTICA_TRACK_SESSIONS', true), // Record who is signed in, from where
         'max_concurrent' => env('AUTENTICA_MAX_CONCURRENT_SESSIONS', 5),
         'cleanup_hours' => env('AUTENTICA_SESSION_CLEANUP_HOURS', 24), // Hours of inactivity before cleanup
+        'activity_throttle_seconds' => env('AUTENTICA_SESSION_ACTIVITY_THROTTLE', 60), // Min gap between last_activity writes
+
+        // Off by default, deliberately. Looking an address up means a blocking call to a
+        // third party on the sign-in path — slow when it answers, slower when it does not —
+        // and it hands that party every user's IP address, which is personal data under GDPR.
+        // Turn it on only where the country column earns those two costs.
+        'location_lookup' => env('AUTENTICA_LOCATION_LOOKUP', false),
         'location_service' => env('AUTENTICA_LOCATION_SERVICE', 'ip-api'), // IP location service
         'location_timeout' => env('AUTENTICA_LOCATION_TIMEOUT', 5), // Timeout for location requests
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Security Event Logging
+    |--------------------------------------------------------------------------
+    |
+    | Whether Autentica listens to the framework's authentication events and
+    | records logins, logouts, failures and lockouts by itself. With this off,
+    | nothing is written unless the application logs events explicitly.
+    |
+    */
+    'events' => [
+        'log' => env('AUTENTICA_LOG_SECURITY_EVENTS', true),
+        'log_failed_logins' => env('AUTENTICA_LOG_FAILED_LOGINS', true),
     ],
 
     /*

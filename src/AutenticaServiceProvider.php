@@ -6,19 +6,30 @@
  * APEX Laravel Autentica Authentication System
  * Description: Service provider for registering Autentica services, commands, and configurations
  *              in the Laravel application container.
- * URL: apex/autentica/src/AutenticaServiceProvider.php
+ * URL: exorgroup/apex-autentica/src/AutenticaServiceProvider.php
  */
 
 namespace Apex\Autentica;
 
 use Illuminate\Support\ServiceProvider;
+use Apex\Autentica\Core\Console\DoctorCommand;
 use Apex\Autentica\Core\Console\TestAutenticaCommand;
 use Apex\Autentica\Core\Services\AuthenticationService;
 use Apex\Autentica\Core\Services\AuthorizationService;
 use Apex\Autentica\Core\Services\PermissionCache;
+use Apex\Autentica\Core\Support\Autentica;
 
 class AutenticaServiceProvider extends ServiceProvider
 {
+    /**
+     * The Pro provider, referenced by name only.
+     *
+     * Core must never import or type-hint anything under src/Pro — Pro is separately licensed
+     * and will eventually ship as its own package. Naming it as a string keeps Core compiling
+     * and running with src/Pro absent, and makes that future split a directory move.
+     */
+    protected const PRO_PROVIDER = 'Apex\\Autentica\\Pro\\AutenticaProServiceProvider';
+
     /**
      * Register services.
      *
@@ -37,6 +48,11 @@ class AutenticaServiceProvider extends ServiceProvider
             'autentica.permissions'
         );
 
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/tenancy.php',
+            'autentica.tenancy'
+        );
+
         // Register services as singletons
         $this->app->singleton(AuthenticationService::class, function ($app) {
             return new AuthenticationService();
@@ -53,8 +69,14 @@ class AutenticaServiceProvider extends ServiceProvider
         // Register commands
         if ($this->app->runningInConsole()) {
             $this->commands([
+                DoctorCommand::class,
                 TestAutenticaCommand::class,
             ]);
+        }
+
+        // Hand over to Pro if it is installed. Core works exactly the same without it.
+        if (class_exists(static::PRO_PROVIDER)) {
+            $this->app->register(static::PRO_PROVIDER);
         }
     }
 
@@ -73,58 +95,19 @@ class AutenticaServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__ . '/../config/auth.php' => config_path('autentica/auth.php'),
                 __DIR__ . '/../config/permissions.php' => config_path('autentica/permissions.php'),
+                __DIR__ . '/../config/tenancy.php' => config_path('autentica/tenancy.php'),
             ], 'autentica-config');
 
-            // Smart migration publishing based on architecture detection
-            $isMultiTenant = $this->detectMultiTenancy();
-            $migrationPath = $isMultiTenant 
-                ? database_path('migrations/tenant')
-                : database_path('migrations');
-
+            // Core migrations only. Pro publishes its own under the autentica-pro-migrations
+            // tag, so a Core-only installation never creates commercially licensed tables.
             $this->publishes([
-                __DIR__ . '/../database/tenant/migrations' => $migrationPath,
+                __DIR__ . '/../database/tenant/migrations/core' => Autentica::migrationPath(),
             ], 'autentica-migrations');
 
             // Publish language files
             $this->publishes([
                 __DIR__ . '/../resources/lang' => resource_path('lang/vendor/autentica'),
             ], 'autentica-lang');
-        }
-    }
-
-    /**
-     * Detect if the application uses multi-tenancy architecture.
-     *
-     * @return bool
-     */
-    protected function detectMultiTenancy(): bool
-    {
-        try {
-            // 1. Explicit configuration wins (most reliable)
-            $enabled = config('autentica.tenancy.enabled', 'auto');
-            if ($enabled !== 'auto') {
-                return (bool) $enabled;
-            }
-
-            // 2. Check for tenant migrations folder (very reliable)
-            if (is_dir(database_path('migrations/tenant'))) {
-                return true;
-            }
-
-            // 3. Check for Stancl Tenancy package (reliable)
-            if (class_exists('\Stancl\Tenancy\TenancyServiceProvider')) {
-                return true;
-            }
-
-            // 4. Default to single-tenant (fallback)
-            return false;
-
-        } catch (\Exception $e) {
-            // Log warning and default to safe option
-            \Illuminate\Support\Facades\Log::warning('APEX Autentica: Could not detect tenancy mode, defaulting to single-tenant', [
-                'error' => $e->getMessage()
-            ]);
-            return false;
         }
     }
 

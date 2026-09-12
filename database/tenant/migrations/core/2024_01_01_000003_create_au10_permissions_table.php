@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('Au10_permissions', function (Blueprint $table) {
+        Schema::create('au10_permissions', function (Blueprint $table) {
             $table->id();
             $table->string('permissionable_type'); // User, Group, etc.
             $table->unsignedBigInteger('permissionable_id');
@@ -22,12 +22,14 @@ return new class extends Migration
             $table->boolean('can_delete')->default(false);
             $table->boolean('can_print')->default(false);
             $table->boolean('can_history')->default(false);
-            $table->json('custom_permissions')->nullable();
+            // Stored as a separator-delimited list, not JSON — see the Permission model and
+            // config('autentica.permissions.custom'). A json column would reject "a,b".
+            $table->string('custom_permissions', 255)->nullable();
             $table->string('signature', 128)->nullable();
             $table->timestamps();
             $table->softDeletes();
 
-            $table->foreign('system_resource_id')->references('id')->on('Au10_system_resources')->onDelete('cascade');
+            $table->foreign('system_resource_id')->references('id')->on('au10_system_resources')->onDelete('cascade');
             $table->index(['permissionable_type', 'permissionable_id']);
             $table->index('system_resource_id');
             $table->unique(['permissionable_type', 'permissionable_id', 'system_resource_id'], 'au10_permissions_unique');
@@ -39,6 +41,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('Au10_permissions');
+        Schema::dropIfExists('au10_permissions');
     }
 };

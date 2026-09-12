@@ -2,15 +2,17 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial - Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Model for trusted device management with device fingerprinting, activity tracking, and security monitoring
- * File Location: apex/autentica/src/Pro/Models/TrustedDevice.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Models/TrustedDevice.php
  */
 
 namespace Apex\Autentica\Pro\Models;
 
-use App\Models\User;
+use Apex\Autentica\Core\Support\Autentica;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,26 +47,10 @@ class TrustedDevice extends Model
         ];
     }
 
-    protected static function boot(): void
-    {
-        try {
-            parent::boot();
-            static::creating(function ($model) {
-                $model->generateSignature();
-            });
-            static::updating(function ($model) {
-                $model->generateSignature();
-            });
-        } catch (\Exception $e) {
-            Log::error('TrustedDevice.php - boot() method error: ' . $e->getMessage());
-            throw $e;
-        }
-    }
-
     public function user(): BelongsTo
     {
         try {
-            return $this->belongsTo(User::class);
+            return $this->belongsTo(Autentica::userModel());
         } catch (\Exception $e) {
             Log::error('TrustedDevice.php - user() method error: ' . $e->getMessage());
             throw $e;

@@ -11,18 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('Au10_mfa_backup_codes', function (Blueprint $table) {
+        Schema::create('au10_password_histories', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
-            $table->string('code', 64)->unique();
-            $table->boolean('used')->default(false);
-            $table->timestamp('used_at')->nullable();
+            // Named 'password' to match users.password — it stores the same hash.
+            $table->string('password');
+            $table->timestamp('created_at');
             $table->string('signature', 128)->nullable();
-            $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->index(['user_id', 'used']);
-            $table->index('used_at');
+            $table->index(['user_id', 'created_at']);
         });
     }
 
@@ -31,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('Au10_mfa_backup_codes');
+        Schema::dropIfExists('au10_password_histories');
     }
 };

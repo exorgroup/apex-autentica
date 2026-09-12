@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('Au10_group_user', function (Blueprint $table) {
+        Schema::create('au10_group_user', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('group_id');
@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('group_id')->references('id')->on('Au10_groups')->onDelete('cascade');
+            $table->foreign('group_id')->references('id')->on('au10_groups')->onDelete('cascade');
             $table->foreign('assigned_by')->references('id')->on('users')->onDelete('set null');
             
             $table->unique(['user_id', 'group_id']);
@@ -33,6 +33,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('Au10_group_user');
+        Schema::dropIfExists('au10_group_user');
     }
 };

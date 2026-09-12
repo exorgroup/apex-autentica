@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('Au10_security_events', function (Blueprint $table) {
+        Schema::create('au10_security_events', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('event_type', 100);
@@ -37,6 +37,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('Au10_security_events');
+        Schema::dropIfExists('au10_security_events');
     }
 };

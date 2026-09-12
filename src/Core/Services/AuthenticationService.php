@@ -6,12 +6,13 @@
  * APEX Laravel Autentica Authentication System
  * Description: Core authentication service handling login, logout, password management,
  *              session management, and account security features.
- * URL: apex/autentica/src/Core/Services/AuthenticationService.php
+ * URL: exorgroup/apex-autentica/src/Core/Services/AuthenticationService.php
  */
 
 namespace Apex\Autentica\Core\Services;
 
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
+use Apex\Autentica\Core\Support\Autentica;
 use Apex\Autentica\Core\Models\AuthToken;
 use Apex\Autentica\Core\Models\PasswordHistory;
 use Illuminate\Support\Facades\Auth;
@@ -37,7 +38,7 @@ class AuthenticationService
             $password = $credentials['password'] ?? '';
 
             // Check if account exists
-            $user = User::where('email', $email)->first();
+            $user = Autentica::users()->where('email', $email)->first();
 
             if (!$user) {
                 User::logFailedLogin($email, ['reason' => 'user_not_found']);
@@ -73,7 +74,7 @@ class AuthenticationService
                     ];
                 }
 
-                $remainingAttempts = config('auth.security.max_login_attempts', 5) - $user->getFailedLoginCount();
+                $remainingAttempts = config('autentica.auth.security.max_login_attempts', 5) - $user->getFailedLoginCount();
 
                 return [
                     'success' => false,
@@ -344,7 +345,7 @@ class AuthenticationService
     protected function checkPasswordHistory(User $user, string $password): bool
     {
         try {
-            $historyCount = config('auth.password_policies.password_history_count', 5);
+            $historyCount = config('autentica.auth.password_policies.password_history_count', 5);
 
             if ($historyCount <= 0) {
                 return true;
@@ -388,7 +389,7 @@ class AuthenticationService
             ]);
 
             // Clean up old password history
-            $historyCount = config('auth.password_policies.password_history_count', 5);
+            $historyCount = config('autentica.auth.password_policies.password_history_count', 5);
             if ($historyCount > 0) {
                 $idsToKeep = PasswordHistory::where('user_id', $user->id)
                     ->orderBy('created_at', 'desc')
@@ -413,7 +414,7 @@ class AuthenticationService
     public function isPasswordExpired(User $user): bool
     {
         try {
-            $expiryDays = config('auth.password_policies.password_expiry_days', 0);
+            $expiryDays = config('autentica.auth.password_policies.password_expiry_days', 0);
 
             if ($expiryDays <= 0) {
                 return false;
@@ -450,7 +451,7 @@ class AuthenticationService
                 ->delete();
 
             $token = Str::random(60);
-            $duration = config('auth.security.remember_me_duration', 30);
+            $duration = config('autentica.auth.security.remember_me_duration', 30);
 
             return AuthToken::create([
                 'user_id' => $user->id,
@@ -475,7 +476,7 @@ class AuthenticationService
     {
         try {
             $token = Str::random(60);
-            $expiryDays = config('auth.api_tokens.expiry_days', 365);
+            $expiryDays = config('autentica.auth.api_tokens.expiry_days', 365);
 
             $authToken = AuthToken::create([
                 'user_id' => $user->id,

@@ -5,7 +5,7 @@
  * Version 1.0.0.0
  * APEX Laravel Autentica Authentication System
  * Description: English language translations for Autentica authentication messages.
- * URL: apex/autentica/resources/lang/en/auth.php
+ * URL: exorgroup/apex-autentica/resources/lang/en/auth.php
  */
 
 return [

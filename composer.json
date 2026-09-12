@@ -1,7 +1,7 @@
 {
-    "name": "apex/autentica",
+    "name": "exorgroup/apex-autentica",
     "type": "laravel-package",
-    "description": "Enterprise-grade authentication and authorization package for Laravel applications",
+    "description": "Authentication and authorization for Laravel: groups, resource permissions, MFA, sessions and security logging",
     "keywords": [
         "laravel",
         "authentication",
@@ -12,18 +12,26 @@
         "oauth",
         "enterprise"
     ],
-    "homepage": "https://github.com/your-org/apex-autentica",
-    "license": "MIT",
+    "homepage": "https://github.com/exorgroup/apex-autentica",
+    "license": [
+        "MIT",
+        "proprietary"
+    ],
     "authors": [
         {
             "name": "EXOR Group",
             "email": "support@exorgroup.com"
         }
     ],
+    "support": {
+        "issues": "https://github.com/exorgroup/apex-autentica/issues",
+        "source": "https://github.com/exorgroup/apex-autentica"
+    },
     "require": {
         "php": "^8.2",
-        "laravel/framework": "^11.0|^12.0",
-        "illuminate/support": "^11.0|^12.0"
+        "exorgroup/apex-signature": "^0.1",
+        "illuminate/support": "^11.0|^12.0",
+        "laravel/framework": "^11.0|^12.0"
     },
     "require-dev": {
         "pestphp/pest": "^2.0|^3.0",
@@ -58,5 +66,11 @@
         "optimize-autoloader": true
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/exorgroup/apex-signature.git"
+        }
+    ]
 }

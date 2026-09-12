@@ -6,62 +6,10 @@
  * APEX Laravel Autentica Authentication System
  * Description: Core authentication configuration file for Autentica. Defines basic authentication settings,
  *              password policies, session management, and account security parameters.
- * URL: apex/autentica/config/auth.php
+ * URL: exorgroup/apex-autentica/config/auth.php
  */
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Authentication Defaults
-    |--------------------------------------------------------------------------
-    |
-    | This option controls the default authentication "guard" and password
-    | reset options for your application.
-    |
-    */
-
-    'defaults' => [
-        'guard' => 'web',
-        'passwords' => 'users',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Authentication Guards
-    |--------------------------------------------------------------------------
-    |
-    | Define authentication guards for your application.
-    |
-    */
-
-    'guards' => [
-        'web' => [
-            'driver' => 'session',
-            'provider' => 'users',
-        ],
-
-        'api' => [
-            'driver' => 'token',
-            'provider' => 'users',
-            'hash' => false,
-        ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | User Providers
-    |--------------------------------------------------------------------------
-    |
-    | Define how users are retrieved from your database.
-    |
-    */
-
-    'providers' => [
-        'users' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\User::class,
-        ],
-    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -101,24 +49,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Password Reset
-    |--------------------------------------------------------------------------
-    |
-    | Configure password reset options.
-    |
-    */
-
-    'passwords' => [
-        'users' => [
-            'provider' => 'users',
-            'table' => 'password_resets',
-            'expire' => 60, // minutes
-            'throttle' => 60, // seconds
-        ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | API Token Settings
     |--------------------------------------------------------------------------
     |
@@ -132,23 +62,4 @@ return [
         'refresh_before_days' => env('AUTH_API_TOKEN_REFRESH_BEFORE_DAYS', 30),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Multi-Tenancy Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Controls multi-tenancy support for Autentica authentication:
-    | - 'auto': Automatically detect architecture (recommended)
-    | - true: Force multi-tenancy mode
-    | - false: Force single-tenancy mode
-    |
-    | Auto-detection checks for:
-    | 1. Explicit configuration setting
-    | 2. Existence of migrations/tenant/ folder
-    | 3. Stancl Tenancy package installation
-    |
-    */
-    'tenancy' => [
-        'enabled' => env('AUTENTICA_TENANCY_ENABLED', 'auto'),
-    ],
 ];

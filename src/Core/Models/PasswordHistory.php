@@ -5,28 +5,38 @@
  * Version 1.0.0.0
  * APEX Laravel Autentica Authentication System
  * Description: PasswordHistory model for tracking password changes and preventing password reuse.
- * URL: apex/autentica/src/Core/Models/PasswordHistory.php
+ * URL: exorgroup/apex-autentica/src/Core/Models/PasswordHistory.php
  */
 
 namespace Apex\Autentica\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Apex\Autentica\Core\Traits\Signable;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
+use Apex\Autentica\Core\Support\Autentica;
 
 class PasswordHistory extends Model
 {
-    use SoftDeletes, Signable;
+    use Signable;
+
+    /**
+     * Password history is deliberately NOT soft-deleted. Pruned entries hold old password
+     * hashes; retaining them forever is a liability, and the cleanup routines below expect
+     * rows to actually disappear. The table carries no deleted_at column.
+     */
+
+    /**
+     * This table records created_at only — there is nothing to update.
+     */
+    public const UPDATED_AT = null;
 
     /**
      * The table associated with the model.
      *
      * @var string
      */
-    protected $table = 'Au10_password_history';
+    protected $table = 'au10_password_histories';
 
     /**
      * The attributes that are mass assignable.
@@ -46,8 +56,6 @@ class PasswordHistory extends Model
     protected $casts = [
         'user_id' => 'integer',
         'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-        'deleted_at' => 'datetime',
     ];
 
     /**
@@ -57,6 +65,7 @@ class PasswordHistory extends Model
      */
     protected $hidden = [
         'password',
+        'signature',
     ];
 
     /**
@@ -67,7 +76,7 @@ class PasswordHistory extends Model
     public function user(): BelongsTo
     {
         try {
-            return $this->belongsTo(User::class);
+            return $this->belongsTo(Autentica::userModel());
         } catch (\Exception $e) {
             Log::error('PasswordHistory.php - user() method error: ' . $e->getMessage());
             throw $e;

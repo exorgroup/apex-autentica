@@ -2,15 +2,16 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial — Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Service class for trusted device management including device registration, verification, and security monitoring
- * File Location: apex/autentica/src/Pro/Services/DeviceManagementService.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Services/DeviceManagementService.php
  */
 
 namespace Apex\Autentica\Pro\Services;
 
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
 use Apex\Autentica\Pro\Models\TrustedDevice;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;

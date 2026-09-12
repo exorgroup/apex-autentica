@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: SecurityEvent model for logging and tracking security-related events such as
  *              login attempts, permission changes, and other security activities.
- * URL: apex/autentica/src/Core/Models/SecurityEvent.php
+ * URL: exorgroup/apex-autentica/src/Core/Models/SecurityEvent.php
  */
 
 namespace Apex\Autentica\Core\Models;
@@ -16,7 +16,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Apex\Autentica\Core\Traits\Signable;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
+use Apex\Autentica\Core\Support\Autentica;
 
 class SecurityEvent extends Model
 {
@@ -27,7 +28,7 @@ class SecurityEvent extends Model
      *
      * @var string
      */
-    protected $table = 'Au10_security_events';
+    protected $table = 'au10_security_events';
 
     /**
      * The attributes that are mass assignable.
@@ -40,6 +41,9 @@ class SecurityEvent extends Model
         'event_data',
         'ip_address',
         'user_agent',
+        'session_id',
+        'severity',
+        'occurred_at',
     ];
 
     /**
@@ -50,10 +54,29 @@ class SecurityEvent extends Model
     protected $casts = [
         'user_id' => 'integer',
         'event_data' => 'array',
+        'occurred_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+
+    /**
+     * Stamp when the event happened.
+     *
+     * occurred_at is NOT NULL with no default. MySQL quietly fills the table's first timestamp
+     * column from the current time when explicit_defaults_for_timestamp is off, which is how
+     * this worked without ever being set — but that is a server setting, not a promise, and on
+     * a host configured the other way every insert would fail. Set it here so the column does
+     * not depend on how somebody's database happens to be tuned.
+     *
+     * @return void
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $event) {
+            $event->occurred_at = $event->occurred_at ?? now();
+        });
+    }
 
     /**
      * Security event types constants.
@@ -79,7 +102,7 @@ class SecurityEvent extends Model
     public function user(): BelongsTo
     {
         try {
-            return $this->belongsTo(User::class);
+            return $this->belongsTo(Autentica::userModel());
         } catch (\Exception $e) {
             Log::error('SecurityEvent.php - user() method error: ' . $e->getMessage());
             throw $e;

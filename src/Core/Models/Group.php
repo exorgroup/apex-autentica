@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: Group model for managing user groups in the authentication system. Handles single-level
  *              groups (Core package) with relationships to users and permissions.
- * URL: apex/autentica/src/Core/Models/Group.php
+ * URL: exorgroup/apex-autentica/src/Core/Models/Group.php
  */
 
 namespace Apex\Autentica\Core\Models;
@@ -16,8 +16,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Apex\Autentica\Core\Traits\Signable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
+use Illuminate\Foundation\Auth\User;
+use Apex\Autentica\Core\Support\Autentica;
 
 class Group extends Model
 {
@@ -28,7 +30,7 @@ class Group extends Model
      *
      * @var string
      */
-    protected $table = 'Au10_groups';
+    protected $table = 'au10_groups';
 
     /**
      * The attributes that are mass assignable.
@@ -59,9 +61,9 @@ class Group extends Model
     public function users(): BelongsToMany
     {
         try {
-            return $this->belongsToMany(User::class, 'Au10_user_groups', 'group_id', 'user_id')
+            return $this->belongsToMany(Autentica::userModel(), 'au10_group_user', 'group_id', 'user_id')
                 ->withTimestamps()
-                ->withPivot('signature');
+                ->withPivot('assigned_at', 'assigned_by');
         } catch (\Exception $e) {
             Log::error('Group.php - users() method error: ' . $e->getMessage());
             throw $e;
@@ -133,28 +135,71 @@ class Group extends Model
     public function grantPermission(SystemResource $resource, array $permissions): Permission
     {
         try {
-            $data = [
-                'system_resource_id' => $resource->id,
-            ];
-
-            // Map permission actions to database columns
-            foreach (['create', 'read', 'update', 'delete', 'print', 'history'] as $action) {
-                $data['can_' . $action] = in_array($action, $permissions);
-            }
-
-            // Handle custom permissions
-            $standardActions = ['create', 'read', 'update', 'delete', 'print', 'history'];
-            $customPermissions = array_diff($permissions, $standardActions);
-            if (!empty($customPermissions)) {
-                $data['custom_permissions'] = implode(',', $customPermissions);
-            }
-
-            return $this->permissions()->updateOrCreate(
-                ['system_resource_id' => $resource->id],
-                $data
-            );
+            // Delegated rather than repeated. createFor() carries two things this method used
+            // to get wrong: it writes custom_permissions even when empty, so re-granting
+            // without customs actually clears the old ones; and it upserts withTrashed(),
+            // which the unique index on (holder, resource) requires — that index ignores
+            // deleted_at, so a revoked row still occupies the slot and a plain insert would
+            // collide, leaving the pair permanently un-grantable.
+            return Permission::createFor($this, $resource, $permissions);
         } catch (\Exception $e) {
             Log::error('Group.php - grantPermission() method error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Copy every permission another group holds onto this one.
+     *
+     * A snapshot, not a link: later changes to the source do not follow. That is what makes
+     * "create a group like this one" safe to offer — the new group is editable from the moment
+     * it exists, and nobody has to reason about which of its permissions are really somebody
+     * else's.
+     *
+     * @param Group $source The group to copy from
+     * @return int How many resources were copied
+     * @throws \Exception
+     */
+    public function copyPermissionsFrom(Group $source): int
+    {
+        try {
+            if ($source->is($this)) {
+                return 0;
+            }
+
+            $copied = 0;
+
+            DB::transaction(function () use ($source, &$copied) {
+                foreach ($source->permissions()->with('systemResource')->get() as $permission) {
+                    $resource = $permission->systemResource;
+
+                    // A permission whose resource has been deleted has nothing to grant.
+                    if (! $resource) {
+                        continue;
+                    }
+
+                    $actions = $permission->getAllowedActions();
+
+                    if (empty($actions)) {
+                        continue;
+                    }
+
+                    Permission::createFor($this, $resource, $actions);
+                    $copied++;
+                }
+            });
+
+            Log::info('Group permissions copied', [
+                'file' => 'Group.php',
+                'method' => 'copyPermissionsFrom',
+                'from_group_id' => $source->id,
+                'to_group_id' => $this->id,
+                'resources_copied' => $copied,
+            ]);
+
+            return $copied;
+        } catch (\Exception $e) {
+            Log::error('Group.php - copyPermissionsFrom() method error: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -180,7 +225,7 @@ class Group extends Model
     /**
      * Add a user to this group.
      *
-     * @param \App\Models\User $user
+     * @param \Illuminate\Foundation\Auth\User $user
      * @return void
      */
     public function addUser(User $user): void
@@ -198,7 +243,7 @@ class Group extends Model
     /**
      * Remove a user from this group.
      *
-     * @param \App\Models\User $user
+     * @param \Illuminate\Foundation\Auth\User $user
      * @return void
      */
     public function removeUser(User $user): void

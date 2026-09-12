@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: Authenticatable composable trait that adds Autentica authentication features
  *              to the User model. Include this trait in your App\Models\User model.
- * URL: apex/autentica/src/Core/Composables/Authenticatable.php
+ * URL: exorgroup/apex-autentica/src/Core/Composables/Authenticatable.php
  */
 
 namespace Apex\Autentica\Core\Composables;

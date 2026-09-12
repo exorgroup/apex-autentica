@@ -2,15 +2,17 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial - Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Model for MFA backup recovery codes with usage tracking and secure hash storage
- * File Location: apex/autentica/src/Pro/Models/MfaBackupCode.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Models/MfaBackupCode.php
  */
 
 namespace Apex\Autentica\Pro\Models;
 
-use App\Models\User;
+use Apex\Autentica\Core\Support\Autentica;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -65,41 +67,6 @@ class MfaBackupCode extends Model
     }
 
     /**
-     * Boot the model and set up event listeners.
-     *
-     * @return void
-     */
-    protected static function boot(): void
-    {
-        try {
-            parent::boot();
-
-            // Generate signature before creating
-            static::creating(function ($model) {
-                $model->generateSignature();
-            });
-
-            // Update signature before updating
-            static::updating(function ($model) {
-                $model->generateSignature();
-            });
-
-            Log::info('MfaBackupCode model booted successfully', [
-                'file' => 'MfaBackupCode.php',
-                'method' => 'boot'
-            ]);
-        } catch (\Exception $e) {
-            Log::error('MfaBackupCode.php - boot() method error: ' . $e->getMessage(), [
-                'file' => 'MfaBackupCode.php',
-                'method' => 'boot',
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
      * Get the user that owns the backup code.
      *
      * @return BelongsTo
@@ -108,7 +75,7 @@ class MfaBackupCode extends Model
     public function user(): BelongsTo
     {
         try {
-            return $this->belongsTo(User::class);
+            return $this->belongsTo(Autentica::userModel());
         } catch (\Exception $e) {
             Log::error('MfaBackupCode.php - user() method error: ' . $e->getMessage(), [
                 'file' => 'MfaBackupCode.php',

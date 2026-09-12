@@ -6,11 +6,12 @@
  * APEX Laravel Autentica Authentication System
  * Description: HasPermissions trait for users and groups. Provides permission checking,
  *              granting, and revoking functionality with caching support.
- * URL: apex/autentica/src/Core/Traits/HasPermissions.php
+ * URL: exorgroup/apex-autentica/src/Core/Traits/HasPermissions.php
  */
 
 namespace Apex\Autentica\Core\Traits;
 
+use Apex\Autentica\Core\Exceptions\AutenticaException;
 use Apex\Autentica\Core\Models\Permission;
 use Apex\Autentica\Core\Models\SystemResource;
 use Illuminate\Support\Facades\Cache;
@@ -125,12 +126,12 @@ trait HasPermissions
     public function getCachedPermissions(): array
     {
         try {
-            if (!config('permissions.cache.enabled', true)) {
+            if (!config('autentica.permissions.cache.enabled', true)) {
                 return $this->buildPermissionsArray();
             }
 
             $cacheKey = $this->getPermissionCacheKey();
-            $ttl = config('permissions.cache.ttl', 3600);
+            $ttl = config('autentica.permissions.cache.ttl', 3600);
 
             return Cache::remember($cacheKey, $ttl, function () {
                 return $this->buildPermissionsArray();
@@ -175,7 +176,7 @@ trait HasPermissions
             }
 
             // If this is a User model, also get group permissions
-            if ($this instanceof \App\Models\User && method_exists($this, 'groups')) {
+            if ($this instanceof \Illuminate\Foundation\Auth\User && method_exists($this, 'groups')) {
                 $this->load('groups.permissions.systemResource');
 
                 foreach ($this->groups as $group) {
@@ -198,7 +199,7 @@ trait HasPermissions
                                     'can_history' => $permission->can_history,
                                     'custom_permissions' => $permission->custom_permissions,
                                 ];
-                            } elseif (config('permissions.inheritance.most_permissive_wins', true)) {
+                            } elseif (config('autentica.permissions.inheritance.most_permissive_wins', true)) {
                                 // Merge permissions - most permissive wins
                                 $permissions[$resourceId]['can_create'] = $permissions[$resourceId]['can_create'] || $permission->can_create;
                                 $permissions[$resourceId]['can_read'] = $permissions[$resourceId]['can_read'] || $permission->can_read;
@@ -235,7 +236,7 @@ trait HasPermissions
     public function clearPermissionCache(): void
     {
         try {
-            if (config('permissions.cache.enabled', true)) {
+            if (config('autentica.permissions.cache.enabled', true)) {
                 Cache::forget($this->getPermissionCacheKey());
             }
         } catch (\Exception $e) {
@@ -254,7 +255,7 @@ trait HasPermissions
     protected function getPermissionCacheKey(): string
     {
         try {
-            $prefix = config('permissions.cache.prefix', 'autentica_permissions');
+            $prefix = config('autentica.permissions.cache.prefix', 'autentica_permissions');
             $type = class_basename($this);
             return "{$prefix}.{$type}.{$this->id}";
         } catch (\Exception $e) {
@@ -274,9 +275,13 @@ trait HasPermissions
     {
         try {
             if (is_string($resource)) {
-                $resource = SystemResource::findByIdentifier($resource);
-                if (!$resource) {
-                    throw new \InvalidArgumentException("System resource not found: {$resource}");
+                // Keep the identifier: findByIdentifier() returns null on a miss, so
+                // interpolating $resource afterwards would name nothing at all.
+                $identifier = $resource;
+                $resource = SystemResource::findByIdentifier($identifier);
+
+                if (! $resource) {
+                    throw new \InvalidArgumentException("System resource not found: {$identifier}");
                 }
             }
 
@@ -284,9 +289,12 @@ trait HasPermissions
             $this->clearPermissionCache();
 
             return $permission;
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('HasPermissions.php - grantPermission() method error: ' . $e->getMessage());
-            throw $e;
+
+            throw AutenticaException::permissionWriteFailed('grantPermission', $e);
         }
     }
 
@@ -324,10 +332,14 @@ trait HasPermissions
             }
 
             $this->clearPermissionCache();
+
             return $result;
         } catch (\Exception $e) {
             Log::error('HasPermissions.php - revokePermission() method error: ' . $e->getMessage());
-            return false;
+
+            // A revoke that quietly fails leaves access in place that the caller believes
+            // it has removed. That has to be loud.
+            throw AutenticaException::permissionWriteFailed('revokePermission', $e);
         }
     }
 
@@ -371,7 +383,8 @@ trait HasPermissions
             return $permission;
         } catch (\Exception $e) {
             Log::error('HasPermissions.php - syncPermissions() method error: ' . $e->getMessage());
-            throw $e;
+
+            throw AutenticaException::permissionWriteFailed('syncPermissions', $e);
         }
     }
 }

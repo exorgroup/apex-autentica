@@ -6,7 +6,7 @@
  * APEX Laravel Autentica Authentication System
  * Description: SystemResource model for managing protected resources in the authorization system.
  *              Represents models, functions, and modules that can have permissions assigned.
- * URL: apex/autentica/src/Core/Models/SystemResource.php
+ * URL: exorgroup/apex-autentica/src/Core/Models/SystemResource.php
  */
 
 namespace Apex\Autentica\Core\Models;
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Apex\Autentica\Core\Traits\Signable;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
+use Apex\Autentica\Core\Support\Autentica;
 
 class SystemResource extends Model
 {
@@ -27,7 +27,7 @@ class SystemResource extends Model
      *
      * @var string
      */
-    protected $table = 'Au10_system_resources';
+    protected $table = 'au10_system_resources';
 
     /**
      * The attributes that are mass assignable.
@@ -208,12 +208,12 @@ class SystemResource extends Model
             $column = 'can_' . $action;
 
             $userIds = $this->permissions()
-                ->where('permissionable_type', 'App\Models\User')
+                ->where('permissionable_type', Autentica::userMorphClass())
                 ->where($column, true)
                 ->pluck('permissionable_id');
 
             $groupUserIds = $this->permissions()
-                ->where('permissionable_type', Group::class)
+                ->where('permissionable_type', Autentica::morphClass(Group::class))
                 ->where($column, true)
                 ->with('permissionable.users')
                 ->get()
@@ -221,7 +221,7 @@ class SystemResource extends Model
                 ->flatten()
                 ->pluck('id');
 
-            return User::whereIn('id', $userIds->merge($groupUserIds)->unique())->get();
+            return Autentica::users()->whereIn('id', $userIds->merge($groupUserIds)->unique())->get();
         } catch (\Exception $e) {
             Log::error('SystemResource.php - getUsersWithPermission() method error: ' . $e->getMessage());
             throw $e;

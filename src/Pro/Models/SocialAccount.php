@@ -2,15 +2,16 @@
 
 /**
  * Copyright EXOR Group Ltd 2025
+ * Licence: Commercial - Autentica Pro. NOT MIT. See LICENSE-PRO in the package root.
  * Version 1.0.0.0
  * APEX Pro Laravel Autentica Authentication System
  * Description: Model for social authentication accounts (Google, Microsoft, etc.) with encrypted token storage and provider management
- * File Location: apex/autentica/src/Pro/Models/SocialAccount.php
+ * File Location: exorgroup/apex-autentica/src/Pro/Models/SocialAccount.php
  */
 
 namespace Apex\Autentica\Pro\Models;
 
-use App\Models\User;
+use Apex\Autentica\Core\Support\Autentica;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -75,41 +76,6 @@ class SocialAccount extends Model
     const SUPPORTED_PROVIDERS = ['google', 'microsoft', 'github', 'facebook', 'twitter'];
 
     /**
-     * Boot the model and set up event listeners.
-     *
-     * @return void
-     */
-    protected static function boot(): void
-    {
-        try {
-            parent::boot();
-
-            // Generate signature before creating
-            static::creating(function ($model) {
-                $model->generateSignature();
-            });
-
-            // Update signature before updating
-            static::updating(function ($model) {
-                $model->generateSignature();
-            });
-
-            Log::info('SocialAccount model booted successfully', [
-                'file' => 'SocialAccount.php',
-                'method' => 'boot'
-            ]);
-        } catch (\Exception $e) {
-            Log::error('SocialAccount.php - boot() method error: ' . $e->getMessage(), [
-                'file' => 'SocialAccount.php',
-                'method' => 'boot',
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
      * Get the user that owns the social account.
      *
      * @return BelongsTo
@@ -118,7 +84,7 @@ class SocialAccount extends Model
     public function user(): BelongsTo
     {
         try {
-            return $this->belongsTo(User::class);
+            return $this->belongsTo(Autentica::userModel());
         } catch (\Exception $e) {
             Log::error('SocialAccount.php - user() method error: ' . $e->getMessage(), [
                 'file' => 'SocialAccount.php',
