@@ -104,4 +104,24 @@ return [
         'separator' => ',',
         'max_length' => 255,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Protected groups
+    |--------------------------------------------------------------------------
+    |
+    | Groups that may not be renamed, deleted, or have their permission matrix
+    | rewritten, and whose last member may not be removed.
+    |
+    | A host matches its administrator group BY NAME, so renaming it turns every
+    | administrator check in that application false — including the one guarding
+    | the screen that renamed it. Configuration rather than a constant, because
+    | the name belongs to the host: not every installation calls it the same thing.
+    |
+    | Enforced by Apex\Autentica\Core\Services\GroupAdministration. P/004.
+    |
+    */
+
+    'protected_groups' => ['Administrators'],
+
 ];
