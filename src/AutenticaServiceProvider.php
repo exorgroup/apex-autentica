@@ -18,6 +18,11 @@ use Apex\Autentica\Core\Services\AuthenticationService;
 use Apex\Autentica\Core\Services\AuthorizationService;
 use Apex\Autentica\Core\Services\PermissionCache;
 use Apex\Autentica\Core\Support\Autentica;
+use Apex\Autentica\Core\Http\Middleware\EnsureAccountActive;
+use Apex\Autentica\Core\Listeners\RefuseSuspendedLogin;
+use Apex\Autentica\Core\Services\SuspensionService;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Support\Facades\Event;
 
 class AutenticaServiceProvider extends ServiceProvider
 {
@@ -62,6 +67,8 @@ class AutenticaServiceProvider extends ServiceProvider
             return new AuthorizationService();
         });
 
+        $this->app->singleton(SuspensionService::class);
+
         $this->app->singleton(PermissionCache::class, function ($app) {
             return new PermissionCache();
         });
@@ -89,6 +96,23 @@ class AutenticaServiceProvider extends ServiceProvider
     {
         // Load translations
         $this->loadTranslationsFrom(__DIR__ . '/../resources/lang', 'autentica');
+
+        /* Account suspension — 0.3.0. Refused at sign-in on the framework's own Login event,
+           and ended on the next request for any session that survived. Both behind one switch,
+           for a host that enforces suspension itself. */
+        if (config('autentica.auth.suspension.enforce', true)) {
+            Event::listen(Login::class, RefuseSuspendedLogin::class);
+            /* Through the HTTP KERNEL, not the router: the kernel syncs ITS group list onto the
+               router, so a middleware pushed onto the router's `web` group can be overwritten
+               before a request ever sees it (a test proved it: the session survived). The
+               kernel's own append updates both. */
+            $kernel = $this->app->make(\Illuminate\Contracts\Http\Kernel::class);
+            if (method_exists($kernel, 'appendMiddlewareToGroup')) {
+                $kernel->appendMiddlewareToGroup('web', EnsureAccountActive::class);
+            } else {
+                $this->app['router']->pushMiddlewareToGroup('web', EnsureAccountActive::class);
+            }
+        }
 
         // Publish configuration
         if ($this->app->runningInConsole()) {

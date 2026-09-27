@@ -5,6 +5,26 @@ All notable changes to `exorgroup/apex-autentica` will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-27
+
+### Added
+- **Account suspension** in Core — stop an account signing in without deleting it.
+  - `SuspensionService`: `suspend($user, $by, $reason)`, `reinstate($user, $by)`,
+    `isSuspended($user)`, `suspendedAmong($ids)` (one query for a page), `current($user)`.
+  - Refuses suspending yourself, and the last ACTIVE member of a protected group (a suspended
+    colleague does not count) — `SuspensionException`.
+  - Idempotent both ways; each change writes `account_suspended` / `account_reinstated` to the
+    security log with who did it (`SecurityEvent::TYPE_ACCOUNT_SUSPENDED` / `_REINSTATED`).
+  - "Signs them out everywhere": deletes the user's Laravel sessions when the driver is
+    `database`, and soft-deletes Pro's `au10_sessions` rows.
+  - Enforced at sign-in (`RefuseSuspendedLogin` on the framework's `Login` event — every way in,
+    a validation error on `email`) and on every request (`EnsureAccountActive`, appended to the
+    `web` group through the HTTP kernel), for sessions no driver can list.
+  - `autentica.auth.suspension.enforce` (default true) and `.redirect_route` (default `login`).
+- Core migration `2024_01_01_000017_create_au10_account_suspensions_table` — a table of the
+  package's own, so the host's `users` is never altered, and the history is kept (who, why, when,
+  who lifted it). Publish it with `vendor:publish --tag=autentica-migrations`.
+
 ## [0.1.0] - 2026-08-28
 
 First release used in anger, by APEX TBX. The API is settled enough to build against; the

@@ -23,6 +23,7 @@ return [
     'login_success' => 'Login successful.',
     'failed' => 'These credentials do not match our records.',
     'locked' => 'Account is locked. Please try again in :minutes minutes.',
+    'suspended' => 'This account has been suspended. Contact the organisation if you think this is a mistake.',
     'error' => 'An error occurred. Please try again.',
 
     // Password messages

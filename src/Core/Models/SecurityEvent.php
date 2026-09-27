@@ -90,6 +90,9 @@ class SecurityEvent extends Model
     const TYPE_GROUP_CHANGED = 'group_membership_changed';
     const TYPE_ACCOUNT_LOCKED = 'account_locked';
     const TYPE_ACCOUNT_UNLOCKED = 'account_unlocked';
+    /** 0.3.0 — an administrator stopped the account signing in, and let it back in. */
+    const TYPE_ACCOUNT_SUSPENDED = 'account_suspended';
+    const TYPE_ACCOUNT_REINSTATED = 'account_reinstated';
     const TYPE_TOKEN_CREATED = 'token_created';
     const TYPE_TOKEN_REVOKED = 'token_revoked';
     const TYPE_PERMISSIONS_COPIED = 'permissions_copied';

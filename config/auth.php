@@ -48,6 +48,17 @@ return [
     ],
 
     /*
+    | Account suspension (0.3.0). `enforce` adds EnsureAccountActive to the `web` middleware
+    | group and refuses a suspended account at sign-in. Off only for a host that enforces it
+    | itself; the SuspensionService works either way.
+    */
+    'suspension' => [
+        'enforce' => env('AUTENTICA_ENFORCE_SUSPENSION', true),
+        // Where a signed-out suspended account is sent. A route name; `/` if it does not exist.
+        'redirect_route' => 'login',
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | API Token Settings
     |--------------------------------------------------------------------------
